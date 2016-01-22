@@ -10,6 +10,9 @@ Module to manipulate with Orvibo devices, such as WiFi sockets and AllOne IR bla
 * More descriptive comments
 * Orvibo s20 event handler
 
+## Requires
+* Python3
+
 
 ## Usage
 ### Discovering all devices in the network
