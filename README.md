@@ -46,9 +46,10 @@ Is socket enabled: False
 **only for devices with type 'irda'**
 ```python
 device = orvibo.discover('192.168.1.37')
+devise.subscribe()
 device.learn_ir()
 ir = device.wait_ir(timeout=15) # AllOne red light is present, waitin for ir signal for 15 seconds
 
 # Now you may send the same signal through AllOne
-device.push_ir(ir)
+device.emit_ir(ir)
 ```
