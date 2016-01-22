@@ -1,5 +1,5 @@
 # orvibo
-Module to manipulate with Orvibo devices, such as WiFi sockets and AllOne IR blasters
+Module to manipulate Orvibo devices, such as s20 wifi sockets and AllOne IR blasters
 
 ## Refferences
 * Module is based on [python-orvibo](https://github.com/happyleavesaoc/python-orvibo) module which currently supports Orvibo S20 sockets.
@@ -12,7 +12,6 @@ Module to manipulate with Orvibo devices, such as WiFi sockets and AllOne IR bla
 
 ## Requires
 * Python3
-
 
 ## Usage
 ### Discovering all devices in the network
