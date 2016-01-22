@@ -21,7 +21,32 @@ Module to manipulate Orvibo devices, such as s20 wifi sockets and AllOne IR blas
 Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
 Orvibo[type=irda, ip=192.168.1.37, mac=b'accf4378efdc']
 ```
-####
+#### Discover device by ip
+```shell
+> python orvibo.py -i 192.168.1.45
+Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
+Is enabled: True
+```
+#### Switch s20 wifi socket
+```shell
+> python orvibo.py -i 192.168.1.45 -s on
+Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
+Already enabled.
+```
+#### Grab IR code to file
+```shell
+> python orvibo.py -i 192.168.1.37 -t test.ir
+Orvibo[type=irda, ip=192.168.1.37, mac=b'accf5378dfdc']
+Done
+```
+#### Emit already grabed IR code
+```shell
+> python orvibo.py -i 192.168.1.37 -e test.ir
+Orvibo[type=irda, ip=192.168.1.37, mac=b'accf5378dfdc']
+Done
+```
+
+
 
 ### Discovering all devices in the network
 ```python
