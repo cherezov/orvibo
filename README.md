@@ -6,6 +6,11 @@ Module to manipulate with Orvibo devices, such as WiFi sockets and AllOne IR bla
 * Lots of info was found in [ninja-allone](https://github.com/Grayda/ninja-allone/blob/master/lib/allone.js) library
 * S20 data analysis by anonymous is [here](http://pastebin.com/0w8N7AJD)
 
+## TODO
+* More descriptive comments
+* Orvibo s20 event handler
+
+
 ## Usage
 ### Discovering all devices in the network
 ```python
