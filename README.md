@@ -6,13 +6,18 @@ Module to manipulate with Orvibo devices, such as WiFi sockets and AllOne IR bla
 * Lots of info was found in [ninja-allone](https://github.com/Grayda/ninja-allone/blob/master/lib/allone.js) library
 * S20 data analysis by anonymous is [here](http://pastebin.com/0w8N7AJD)
 
+## TODO
+* More descriptive comments
+* Orvibo s20 event handler
+
+
 ## Usage
 ### Discovering all devices in the network
 ```python
 for device in orvibo.discover():
     print(device)
 ```
-As result:
+Result
 ```
 Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
 Orvibo[type=irda, ip=192.168.1.37, mac=b'accf4378efdc']
@@ -23,6 +28,11 @@ Orvibo[type=irda, ip=192.168.1.37, mac=b'accf4378efdc']
 device = orvibo.discover('192.168.1.45')
 print(device)
 ```
+or
+```python
+with orvibo.Orvibo('192.168.1.45') as device:
+    print(device)
+```
 Result:
 ```
 Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
@@ -31,10 +41,10 @@ Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
 ### Control S20 wifi socket
 **only for devices with type 'socket'**
 ```python
-device = orvibo.discover('192.168.1.45')
-print('Is socket enabled: {}'.format(device.on))
-device.on = not device.on # Toggle socket
-print('Is socket enabled: {}'.format(device.on))
+with orvibo.Orvibo('192.168.1.45') as device:
+    print('Is socket enabled: {}'.format(device.on))
+    device.on = not device.on # Toggle socket
+    print('Is socket enabled: {}'.format(device.on))
 ```
 Result:
 ```
@@ -45,10 +55,11 @@ Is socket enabled: False
 ### Learning AllOne IR blaster
 **only for devices with type 'irda'**
 ```python
-device = orvibo.discover('192.168.1.37')
-device.learn_ir()
-ir = device.wait_ir(timeout=15) # AllOne red light is present, waitin for ir signal for 15 seconds
+with orvibo.Orvibo('192.168.1.37') as device:
+    devise.subscribe()
+    device.learn_ir()
+    ir = device.wait_ir(timeout=15) # AllOne red light is present, waiting for ir signal for 15 seconds
 
-# Now you may send the same signal through AllOne
-device.push_ir(ir)
+    # Now you may send the same signal through AllOne
+    device.emit_ir(ir)
 ```
