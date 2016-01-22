@@ -40,6 +40,16 @@ Result:
 Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
 ```
 
+### Getting exact device by MAC
+```python
+device = orvibo.discover(mac=b'\xac\xdf\x23\x8d\x1d\x2e')
+print(device)
+```
+Result:
+```
+Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
+```
+
 ### Control S20 wifi socket
 **only for devices with type 'socket'**
 ```python
@@ -58,10 +68,8 @@ Is socket enabled: False
 **only for devices with type 'irda'**
 ```python
 with orvibo.Orvibo('192.168.1.37') as device:
-    devise.subscribe()
-    device.learn_ir()
-    ir = device.wait_ir(timeout=15) # AllOne red light is present, waiting for ir signal for 15 seconds
+    ir = device.learn_ir(timeout = 15) # AllOne red light is present, waiting for ir signal for 15 seconds
 
-    # Now you may send the same signal through AllOne
+    # Send the same signal through AllOne
     device.emit_ir(ir)
 ```
