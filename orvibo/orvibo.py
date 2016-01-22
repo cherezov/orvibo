@@ -298,12 +298,18 @@ class Orvibo:
 
 
     def emit_ir(self, ir):
+        self.subscribe()
         if self.type != TYPE_IRDA:
             return
 
+        if isinstance(ir, str):
+            self.__logger.debug('IR code from file {}'.format(ir) )
+            with open(ir, 'rb') as f:
+                ir = f.read()
+                self.__logger.debug('IR code read.')
+
         ir_packet = _create_orvibo_packet(BLAST_IR, self.mac, SPACES_6, b'\x65\x00\x00\x00', _random_byte(), _random_byte(), ir)
         data = self.__send_recv_udp(ir_packet)
-        return data
 
 if __name__ == '__main__':
 
@@ -366,10 +372,8 @@ if __name__ == '__main__':
             elif d.type == TYPE_IRDA:
                 if emitFile is not None:
                     d.subscribe()
-                    with open(emitFile, 'rb') as f: 
-                        ir = f.read()
-                        d.emit_ir(ir)
-                        print('Done.')
+                    d.emit_ir(emitFile)
+                    print('Done.')
                 elif teach is not None:
                     ir = d.learn_ir()
 
