@@ -47,8 +47,8 @@ Done
 ```
 
 
-
-### Discovering all devices in the network
+### Python3 module
+#### Discovering all devices in the network
 ```python
 for device in orvibo.discover():
     print(device)
@@ -59,7 +59,7 @@ Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
 Orvibo[type=irda, ip=192.168.1.37, mac=b'accf4378efdc']
 ```
 
-### Getting exact device by IP
+#### Getting exact device by IP
 ```python
 device = orvibo.discover('192.168.1.45')
 print(device)
@@ -74,7 +74,7 @@ Result:
 Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
 ```
 
-### Getting exact device by MAC
+#### Getting exact device by MAC
 ```python
 device = orvibo.discover(mac=b'\xac\xdf\x23\x8d\x1d\x2e')
 print(device)
@@ -84,7 +84,7 @@ Result:
 Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
 ```
 
-### Control S20 wifi socket
+#### Control S20 wifi socket
 **only for devices with type 'socket'**
 ```python
 with orvibo.Orvibo('192.168.1.45') as device:
@@ -98,7 +98,7 @@ Is socket enabled: True
 Is socket enabled: False
 ```
 
-### Learning AllOne IR blaster
+#### Learning AllOne IR blaster
 **only for devices with type 'irda'**
 ```python
 with orvibo.Orvibo('192.168.1.37') as device:
