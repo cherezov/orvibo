@@ -358,8 +358,11 @@ if __name__ == '__main__':
                 if switch is None:
                     print('Is enabled:', d.on)
                 else:
-                    d.on = switch
-                    print('Is enabled:', d.on)
+                    if d.on != switch:
+                        d.on = switch
+                        print('Is enabled:', d.on)
+                    else:
+                        print('Already enabled.')
             elif d.type == TYPE_IRDA:
                 if emitFile is not None:
                     d.subscribe()
