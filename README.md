@@ -14,6 +14,15 @@ Module to manipulate Orvibo devices, such as s20 wifi sockets and AllOne IR blas
 * Python3
 
 ## Usage
+### As console app
+#### Discovering all Orvibo devices in the network
+```shell
+> python orvibo.py
+Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
+Orvibo[type=irda, ip=192.168.1.37, mac=b'accf4378efdc']
+```
+####
+
 ### Discovering all devices in the network
 ```python
 for device in orvibo.discover():
