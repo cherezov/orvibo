@@ -1,3 +1,6 @@
+# @file orvibo.py
+# @author cherezov.pavel@gmail.com
+
 import logging
 import struct
 import select
@@ -5,7 +8,6 @@ import random
 import socket
 import binascii
 import time
-
 
 PORT = 10000
 
@@ -47,7 +49,7 @@ def _reverse_bytes(mac):
     ba.reverse()
     return bytes(ba)
 
-def __random_bit():
+def _random_bit():
     return bytes([int(256 * random.random())])
 
 def _create_udp_socket():
@@ -69,7 +71,7 @@ def _create_orvibo_packet(*args):
     return packet
     
 placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'BLAST_IR', 'DISCOVERY', 'DISCOVERY_RESP']
-def parse_rcv(data):
+def _debug_data(data):
     data = binascii.hexlify(bytearray(data))
     for s in placeholders:
         p = binascii.hexlify(bytearray( globals()[s]))
@@ -79,7 +81,7 @@ def parse_rcv(data):
 def parse_discovery_response(data):
     # Response:
     # MAGIC + DISCOVERY_RESP + MAC + SPACES_6 + REV_MAC + ... TYPE
-    logging.debug('Discovered:\n{}'.format(parse_rcv(data)) )
+    logging.debug('Discovered:\n{}'.format(_debug_data(data)) )
 
     header_len = len(MAGIC + DISCOVERY_RESP) + 2 + 1  # 2 length bytes, and 0x00
     mac_len = 6
@@ -179,7 +181,7 @@ class Orvibo:
         # Send
         r, w, x = select.select([], [self.__socket], [], 5)
         if self.__socket in w:
-            self.__logger.debug('Sending: {}'.format(parse_rcv(packet)) )
+            self.__logger.debug('Sending: {}'.format(_debug_data(packet)) )
             self.__socket.sendto(bytearray(packet), (self.ip, PORT))
 
         # Receive
@@ -197,7 +199,7 @@ class Orvibo:
                 # Nothing to read
                 break
 
-        self.__logger.debug('Received: {}'.format(parse_rcv(data)) )
+        self.__logger.debug('Received: {}'.format(_debug_data(data)) )
         return data
 
     def subscribe(self):
@@ -228,7 +230,7 @@ class Orvibo:
             r, w, x = select.select([self.__socket], [], [self.__socket], 1)
             if self.__socket in r:
                 data, addr = self.__socket.recvfrom(1024)
-                self.__logger.debug('waiting ir: {}'.format(parse_rcv(data)) )
+                self.__logger.debug('waiting ir: {}'.format(_debug_data(data)) )
                 break
             elif self.__socket in x:
                 raise OrviboException('Subscribe failed')
@@ -236,11 +238,11 @@ class Orvibo:
                 self.__logger.debug('still waiting..')
 
         d = data.split(self.mac + SPACES_6, 1)
-        self.__logger.debug('data0 = : {}'.format(parse_rcv(d[0])) )
-        self.__logger.debug('data1 = : {}'.format(parse_rcv(d[1])) )
+        self.__logger.debug('data0 = : {}'.format(_debug_data(d[0])) )
+        self.__logger.debug('data1 = : {}'.format(_debug_data(d[1])) )
 
         ir = d[1][6:]
-        self.__logger.debug('ir = : {}'.format(parse_rcv(ir)) )
+        self.__logger.debug('ir = : {}'.format(_debug_data(ir)) )
         return ir
 
     def learn_ir(self):
@@ -251,51 +253,86 @@ class Orvibo:
         ir_code = self.interactUpd(learn_packet)
         return ir_code
 
-    def push_ir(self, ir):
+    def emit_ir(self, ir):
         if self.type != TYPE_IRDA:
             return
 
-        ir_packet = _create_orvibo_packet(BLAST_IR, self.mac, SPACES_6, b'\x65\x00\x00\x00', __random_bit(), __random_bit(), ir)
+        ir_packet = _create_orvibo_packet(BLAST_IR, self.mac, SPACES_6, b'\x65\x00\x00\x00', _random_bit(), _random_bit(), ir)
         data = self.interactUpd(ir_packet)
         return data
 
 if __name__ == '__main__':
 
-    logging.basicConfig(level=logging.INFO)
-
+    import sys
+    import getopt
+    
     try:
-        #for d in discover():
-        #    print(d)
+        opts, args = getopt.getopt(sys.argv[1:], "hL:i:s:e:t:", ['loglevel=','ip=','switch=','emit=','teach='])
+    except getopt.GetoptError:
+        print('orvibo.py -L <log level> -i <ip> -s <on/off> -e <file.ir> -t <file.ir>')
+        sys.exit(2)
 
-        
+    loglevel = logging.WARN
+    ip = None
+    switch = None
+    emitFile = None
+    teach = None
 
-        d = discover('192.168.1.45')
+    for opt, arg in opts:
+        if opt == '-h':
+            print('orvibo.py -L <log level> -i <ip> -s <on/off> -e <file.ir> -t')
+            sys.exit()
+        elif opt in ("-L", "--loglevel"):
+            if arg.lower() == 'debug':
+                loglevel = logging.DEBUG
+            elif arg.lower() == 'info':
+                loglevel = logging.INFO
+            elif arg.lower() == 'warn':
+                loglevel = logging.WARN
+        elif opt in ("-i", "--ip"):
+            ip = arg
+        elif opt in ("-s", "--switch"):
+            switch = True if arg.lower() == 'on' or arg == '1' else False
+        elif opt in ("-e", "--emit"):
+            emitFile = arg
+        elif opt in ("-t", "--teach"):
+            teach = arg
+
+
+    logging.basicConfig(level=loglevel)
+
+    if ip is None and switch is None and emitFile is None and teach is None:
+        for d in discover():
+            print(d)
+        sys.exit(0)
+
+    if ip is not None:
+        d = discover(ip)
         print(d)
-        print('Is on:', d.on)
-        d.on = not d.on
-        print('Is on:', d.on)
+        try:
+            if d.type == TYPE_SOCKET:
+                if switch is None:
+                    print('Is enabled:', d.on)
+                else:
+                    d.on = switch
+                    print('Is enabled:', d.on)
+            elif d.type == TYPE_IRDA:
+                if emitFile is not None:
+                    with open(emitFile, 'rb') as f: 
+                        ir = f.read()
+                        d.emit_ir(ir)
+                        print('Done.')
+                elif teach is not None:
+                    d.subscribe()
+                    d.learn_ir()
+                    ir = d.wait_ir()
 
-        #print(d)
-        #print('Subscribe: ', d.subscribe())
-        #print('Control: ', d.control_s20(ON))
-#
-        #print('Subscribe: ', d.subscribe())
-        #d.learn_ir()
-        #print(d.subscribe())
-        #print( d.interactUpd(payload) )
-        #ir = d.wait_ir()
+                    with open(teach, 'wb') as f: 
+                        f.write(ir)
+        except Exception as e:
+            raise e
+        finally:
+            d.close()
 
-        #with open('tv_power.ir', 'wb') as f: 
-        #    f.write(ir)
-
-        #input()
-
-        #with open('tv_power.ir', 'rb') as f: 
-        #    ir = f.read()
-        #    print(d.push_ir(ir))
-        #    print('done')
-
-    finally:
-        #d.close()
-        pass
+        sys.exit(0)
 
