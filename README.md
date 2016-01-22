@@ -1,7 +1,52 @@
 # orvibo
-Module to manipulate with Orvibo devices, such as WiFi sockets and IR blasters
+Module to manipulate with Orvibo devices, such as WiFi sockets and AllOne IR blasters
 
 ## Usage
+### Discovering all devices in the network
+```python
+for device in orvibo.discover():
+    print(device)
+```
+As result:
+```
+Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
+Orvibo[type=irda, ip=192.168.1.37, mac=b'accf4378efdc']
+```
+
+### Getting exact device by IP
+```python
+device = orvibo.discover('192.168.1.45')
+print(device)
+```
+Result:
+```
+Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
+```
+
+### Control S20 wifi socket
+**only for devices with type 'socket'**
+```python
+device = orvibo.discover('192.168.1.45')
+print('Is socket enabled: {}'.format(device.on))
+device.on = not device.on # Toggle socket
+print('Is socket enabled: {}'.format(device.on))
+```
+Result:
+```
+Is socket enabled: True
+Is socket enabled: False
+```
+
+### Learning AllOne IR blaster
+**only for devices with type 'irda'**
+```python
+device = orvibo.discover('192.168.1.37')
+device.learn_ir()
+ir = device.wait_ir(timeout=15) # AllOne red light is present, waitin for ir signal for 15 seconds
+
+# Now you may send the same signal through AllOne
+device.push_ir(ir)
+```
 
 
 ## Refferences
