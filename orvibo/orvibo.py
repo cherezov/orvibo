@@ -7,7 +7,6 @@ import select
 import random
 import socket
 import binascii
-import time
 
 PORT = 10000
 
@@ -144,7 +143,7 @@ class Orvibo:
         self.close()
 
     def __enter__(self):
-        pass
+        return self
 
     def __exit__(self, type, value, traceback):
         self.close()
@@ -280,7 +279,7 @@ if __name__ == '__main__':
 
     for opt, arg in opts:
         if opt == '-h':
-            print('orvibo.py -L <log level> -i <ip> -s <on/off> -e <file.ir> -t')
+            print('orvibo.py -L <log level> -i <ip> -s <on/off> -e <file.ir> -t <file.ir>')
             sys.exit()
         elif opt in ("-L", "--loglevel"):
             if arg.lower() == 'debug':
@@ -318,6 +317,7 @@ if __name__ == '__main__':
                     print('Is enabled:', d.on)
             elif d.type == TYPE_IRDA:
                 if emitFile is not None:
+                    d.subscribe()
                     with open(emitFile, 'rb') as f: 
                         ir = f.read()
                         d.emit_ir(ir)
