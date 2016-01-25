@@ -108,4 +108,7 @@ with orvibo.Orvibo('192.168.1.37') as device:
 
     # Send the same signal through AllOne
     device.emit_ir(ir)
+    
+    # If IR code already grabed to file "test.ir", just emit it
+    device.emit_ir('test.ir')
 ```
