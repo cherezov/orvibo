@@ -118,6 +118,8 @@ def parse_discovery_response(response):
 
     return (type, mac, rev_mac)
 
+DEVICES = {}
+
 def discover(ip = None, mac = None):
     """ Collects all/exact Orvibo device(s) in the local network
 
@@ -126,25 +128,40 @@ def discover(ip = None, mac = None):
 
     If parameters are omited returns list of Orvibo objects, otherwise returns Orvibo object or raises OrviboException.
     """ 
-    broadcast = '255.255.255.255'
-    devices = {}
-    try:
-        s = _create_udp_socket()
-        discover_packet = _create_orvibo_packet(DISCOVERY)
-        s.sendto(bytearray(discover_packet), (broadcast, PORT))
+    global DEVICES
+    if not DEVICES:
+        logging.warn('discover {} mac {}'.format(ip, mac)) 
+        broadcast = '255.255.255.255'
+        devices = {}
+        try:
+            s = _create_udp_socket()
+            discover_packet = _create_orvibo_packet(DISCOVERY)
+            s.sendto(bytearray(discover_packet), (broadcast, PORT))
 
-        while True:
-            r, w, x = select.select([s], [], [], 1)
-            if s not in r:
-                break
+            while True:
+                r, w, x = select.select([s], [], [], 1)
+                if s not in r:
+                    break
 
-            data, addr = s.recvfrom(1024)
+                data, addr = s.recvfrom(1024)
 
-            t, _mac, _rmac = parse_discovery_response(data)
-            dev = Orvibo(addr[0], _mac, t, _rmac)
-            devices[dev.ip] = dev
-    finally:
-        s.close()
+                t, _mac, _rmac = parse_discovery_response(data)
+                if _mac is None:
+                    continue
+                dev = Orvibo(addr[0], _mac, t, _rmac)
+                devices[dev.ip] = dev
+            DEVICES = devices
+        finally:
+            s.close()
+
+    if ip is not None: 
+        if ip not in DEVICES:
+            raise OrviboException('Device ip={} not found.'.format(ip))
+        # ip is set and found
+        return DEVICES[ip]
+    else:
+        return DEVICES.values()
+
 
 
     matched = None
@@ -192,6 +209,7 @@ class Orvibo:
         """
         if self.__socket is not None:
             self.__socket.close()
+            self.__socket = None
 
     def __discover(self):
         d = discover(self.ip)
@@ -217,7 +235,7 @@ class Orvibo:
 
         :returns: State of device (on/off).
         """
-        return self.subscribe()
+        return self.subscribe() == 1
 
     @on.setter
     def on(self, state):
@@ -228,6 +246,7 @@ class Orvibo:
         self.__control_s20(ON if state else OFF)
 
     def __control_s20(self, state):
+        self.subscribe()
         if self.type != TYPE_SOCKET:
             return
 
@@ -254,7 +273,7 @@ class Orvibo:
                 if expect is not None and data[4:6] != expect:
                     continue
             elif self.__socket in x:
-                raise OrviboException('Subscribe failed')
+                raise OrviboException('Receiving failed')
             else:
                 # Nothing to read
                 break
@@ -268,6 +287,7 @@ class Orvibo:
         return self.__wait_ir_code(timeout)
 
     def __enter_ir_learn_mode(self):
+        self.subscribe()
         if self.type != TYPE_IRDA:
             return
 
