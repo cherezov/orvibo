@@ -7,8 +7,10 @@ Module to manipulate Orvibo devices, such as s20 wifi sockets and AllOne IR blas
 * S20 data analysis by anonymous is [here](http://pastebin.com/0w8N7AJD)
 
 ## TODO
-* More descriptive comments
 * Orvibo s20 event handler
+
+## Issue
+* After subscribtion to any Orvibo device, all devices becomes undiscoverable
 
 ## Requires
 * Python3
@@ -106,4 +108,7 @@ with orvibo.Orvibo('192.168.1.37') as device:
 
     # Send the same signal through AllOne
     device.emit_ir(ir)
+    
+    # If IR code already grabed to file "test.ir", just emit it
+    device.emit_ir('test.ir')
 ```
