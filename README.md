@@ -7,10 +7,11 @@ Module to manipulate Orvibo devices, such as s20 wifi sockets and AllOne IR blas
 * S20 data analysis by anonymous is [here](http://pastebin.com/0w8N7AJD)
 
 ## TODO
+* Test under linux platform
 * Orvibo s20 event handler
 
 ## Issue
-* After subscribtion to any Orvibo device, all devices becomes undiscoverable
+* ~After subscribtion to any Orvibo device, all devices becomes undiscoverable~
 
 ## Requires
 * Python3
