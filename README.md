@@ -101,9 +101,10 @@ device = Orvibo('192.168.1.37')
 ir = device.learn_ir('test.ir', timeout = 15) # AllOne red light is present,
                                               # waiting for ir signal for 15 seconds and stores it to test.ir file
 
-# Emit IR code from "test.ir"
+
 if ir is not None:
+    # Emit IR code from "test.ir"
     device.emit_ir('test.ir')
-    # Or the with the same result
+    # Or with the same result
     # device.emit_ir(ir)
 ```
