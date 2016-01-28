@@ -1,12 +1,14 @@
 # @file orvibo.py
 # @author cherezov.pavel@gmail.com
 
+from contextlib import contextmanager
 import logging
 import struct
 import select
 import random
 import socket
 import binascii
+import time
 
 PORT = 10000
 
@@ -21,8 +23,8 @@ ON = b'\x01'
 OFF = b'\x00'
 
 # CMD CODES
-DISCOVERY = b'\x71\x61'
-DISCOVERY_RESP = DISCOVERY
+DISCOVER = b'\x71\x61'
+DISCOVER_RESP = DISCOVER
 
 SUBSCRIBE = b'\x63\x6c'
 SUBSCRIBE_RESP = SUBSCRIBE
@@ -33,7 +35,7 @@ CONTROL_RESP = CONTROL
 SOCKET_EVENT = b'\x73\x66' # something happend with socket TODO:
 
 LEARN_IR = b'\x6c\x73'
-# LEARN_IR_RESP
+LEARN_IR_RESP = LEARN_IR
 
 BLAST_IR = b'\x69\x63'
 # BLAST_IR_RESP
@@ -59,30 +61,7 @@ def _random_byte():
     """
     return bytes([int(256 * random.random())])
 
-def _create_udp_socket():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    for opt in [socket.SO_BROADCAST, socket.SO_REUSEADDR,socket.SO_BROADCAST]:
-        sock.setsockopt(socket.SOL_SOCKET, opt, 1)
-    sock.bind(('', PORT))
-    return sock
-
-def _create_orvibo_packet(*args):
-    """ Assemblies packet to send to orvibo device.
-
-    *args -- number of bytes strings that will be concatenated, and prefixed with MAGIC heaer and packet length.
-    """
-
-    length = len(MAGIC) + 2 # len itself
-    packet = b''
-    for a in args:
-        length += len(a)
-        packet += a
-
-    msg_len_2 = struct.pack('>h', length)
-    packet = MAGIC + msg_len_2 + packet
-    return packet
-    
-placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'BLAST_IR', 'DISCOVERY', 'DISCOVERY_RESP']
+placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'BLAST_IR', 'DISCOVER', 'DISCOVER_RESP']
 def _debug_data(data):
     data = binascii.hexlify(bytearray(data))
     for s in placeholders:
@@ -90,15 +69,13 @@ def _debug_data(data):
         data = data.replace(p, b" + " + s.encode() + b" + ")
     return data
 
-def parse_discovery_response(response):
+def _parse_discover_response(response):
     """ Extracts MAC address and Type of the device from response.
 
     response -- dicover response, format:
-                MAGIC + LENGTH + DISCOVERY_RESP + b'\x00' + MAC + SPACES_6 + REV_MAC + ... TYPE
+                MAGIC + LENGTH + DISCOVER_RESP + b'\x00' + MAC + SPACES_6 + REV_MAC + ... TYPE
     """
-    logging.debug('Discovered:\n{}'.format(_debug_data(response)) )
-
-    header_len = len(MAGIC + DISCOVERY_RESP) + 2 + 1  # 2 length bytes, and 0x00
+    header_len = len(MAGIC + DISCOVER_RESP) + 2 + 1  # 2 length bytes, and 0x00
     mac_len = 6
     spaces_len = len(SPACES_6)
 
@@ -106,128 +83,203 @@ def parse_discovery_response(response):
     mac_end = mac_start + mac_len
     mac = response[mac_start:mac_end]
 
-    rev_mac_start = mac_end + spaces_len 
-    rev_mac_end = rev_mac_start + mac_len
-    rev_mac = response[rev_mac_start:rev_mac_end]
-
     type = None
     if b'SOC' in response:
         type = TYPE_SOCKET
     elif b'IRD' in response:
         type = TYPE_IRDA
 
-    return (type, mac, rev_mac)
+    return (type, mac)
 
-DEVICES = {}
+@contextmanager
+def _orvibo_socket():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    for opt in [socket.SO_BROADCAST, socket.SO_REUSEADDR,socket.SO_BROADCAST]:
+        sock.setsockopt(socket.SOL_SOCKET, opt, 1)
+    sock.bind(('', PORT))
 
-def discover(ip = None, mac = None):
-    """ Collects all/exact Orvibo device(s) in the local network
+    yield sock
 
-    ip -- [optional] ip of the discovering device, e.g '192.168.1.1'
-    mac -- [optional] MAC address of the discovering device, e.g b'accf238d1d22'
+    sock.close()
 
-    If parameters are omited returns list of Orvibo objects, otherwise returns Orvibo object or raises OrviboException.
-    """ 
-    global DEVICES
-    if not DEVICES:
-        logging.warn('discover {} mac {}'.format(ip, mac)) 
-        broadcast = '255.255.255.255'
-        devices = {}
-        try:
-            s = _create_udp_socket()
-            discover_packet = _create_orvibo_packet(DISCOVERY)
-            s.sendto(bytearray(discover_packet), (broadcast, PORT))
 
-            while True:
-                r, w, x = select.select([s], [], [], 1)
-                if s not in r:
-                    break
+class Packet:
+    """ Represents response sender/recepient address and binary data.
+    """
 
-                data, addr = s.recvfrom(1024)
+    Request = 'request'
+    Response = 'response'
 
-                t, _mac, _rmac = parse_discovery_response(data)
-                if _mac is None:
+    def __init__(self, ip, data = None, type=Request):
+        self.ip = ip 
+        self.data = data
+
+    def __repr__(self):
+        return 'Packet {} {}: {}'.format('to' if self.type == Request else 'from', self.ip, _debug_data(self.packet))
+
+    def send(self, sock, timeout = 10):
+        """ Sends binary packet via socket.
+
+        Arguments:
+        sock -- socket to send through
+        packet -- byte string to send
+        timeout -- number of seconds to wait for sending operation
+        """
+        if self.data is None:
+            # Nothing to send
+            return
+
+        for i in range(timeout):
+            r, w, x = select.select([], [sock], [sock], 1)
+            if sock in w:
+                sock.sendto(bytearray(self.data), (self.ip, PORT))
+            elif sock in x:
+                raise OrviboException("Failed while sending packet.")
+            else:
+                # nothing to send
+                break
+
+    @staticmethod
+    def recv(sock, expectResponseType = None, timeout = 10):
+        """ Receive first packet from socket of given type
+
+        Arguments:
+        sock -- socket to listen to
+        expectResponseType -- 2 bytes packet command type to filter result data
+        timeout -- number of seconds to wait for response
+        """
+        response = None
+        for i in range(10):
+            r, w, x = select.select([sock], [], [sock], 1)
+            if sock in r:
+                data, addr = sock.recvfrom(1024)
+
+                if expectResponseType is not None and data[4:6] != expectResponseType:
                     continue
-                dev = Orvibo(addr[0], _mac, t, _rmac)
-                devices[dev.ip] = dev
-            DEVICES = devices
-        finally:
-            s.close()
 
-    if ip is not None: 
-        if ip not in DEVICES:
-            raise OrviboException('Device ip={} not found.'.format(ip))
-        # ip is set and found
-        return DEVICES[ip]
-    else:
-        return DEVICES.values()
+                response = Packet(addr[0], data, Packet.Response)
+                break
+            elif sock in x:
+                raise OrviboException('Getting response failed')
+            else:
+                # Nothing to read
+                break
 
+        return response
+    
+    def compile(self, *args):
+        """ Assemblies packet to send to orvibo device.
 
+        *args -- number of bytes strings that will be concatenated, and prefixed with MAGIC heaer and packet length.
+        """
 
-    matched = None
-    if ip is not None: 
-        if ip not in devices:
-            raise OrviboException('Device ip={} not found.'.format(ip))
-        # ip is set and found
-        matched = devices[ip]
-        devices = { ip : matched }
+        length = len(MAGIC) + 2 # len itself
+        packet = b''
+        for a in args:
+            length += len(a)
+            packet += a
 
-    if mac is not None:
-        if mac not in [d.mac for d in devices.values()]:
-            raise OrviboException('Device mac={} not found.'.format(mac))
-        matched = [d for d in devices.values() if d.mac == mac][0]
+        msg_len_2 = struct.pack('>h', length)
+        self.data = MAGIC + msg_len_2 + packet
+        return self
 
-    return matched if matched is not None else devices.values()
-
-class Orvibo:
+class Orvibo(object):
     """ Represents Orvibo device, such as wifi socket (TYPE_SOCKET) or AllOne IR blaster (TYPE_IRDA)
     """
 
-    def __init__(self, host, mac = None, type = None, rev_mac = None):
-        self.__logger = logging.getLogger('{}@{}'.format(self.__class__.__name__, host))
-        self.ip = host
-        self.mac = mac
+    def __init__(self, ip, mac = None, type = 'Unknown'):
+        self.ip = ip
         self.type = type
-        self.rev_mac = rev_mac
-        self.__socket = None
-
+        self.mac = mac
+        self.__last_subscr_time = time.time() - 1 # Orvibo doesn't like subscriptions frequently that 1 in 0.1sec
+        self.__logger = logging.getLogger('{}@{}'.format(self.__class__.__name__, ip))
+        
     def __repr__(self):
         mac = binascii.hexlify(bytearray(self.mac))
         return "Orvibo[type={}, ip={}, mac={}]".format(self.type, self.ip, mac)
 
-    def __del__(self):
-        self.close()
+    @staticmethod
+    def discover(ip = None):
+        broadcast = '255.255.255.255'
+        devices = {}
+        with _orvibo_socket() as s:
+            logger = logging.getLogger(Orvibo.__class__.__name__)
+            logger.debug('Discovering Orvibo devices')
+            discover_packet = Packet(broadcast)
+            discover_packet.compile(DISCOVER)
+            discover_packet.send(s)
+            
+            for indx in range(512): # supposer there are less then 512 devices in the network
+                p = discover_packet.recv(s)
+                if p is None:
+                    # No more packets in the socket
+                    break
 
-    def __enter__(self):
-        return self
+                orvibo_type, orvibo_mac = _parse_discover_response(p.data)
 
-    def __exit__(self, type, value, traceback):
-        self.close()
+                if not orvibo_mac:
+                    # Filter ghosts devices
+                    continue
 
-    def close(self):
-        """ Close connection gracefuly.
-        """
-        if self.__socket is not None:
-            self.__socket.close()
-            self.__socket = None
+                devices[p.ip] = (p.ip, orvibo_mac, orvibo_type)
 
-    def __discover(self):
-        d = discover(self.ip)
-        self.mac = d.mac
-        self.type = d.type
-        self.rev_mac = d.rev_mac
+        if ip is None:
+            return devices
+
+        if ip not in devices.keys():
+            raise OrviboException('Device ip={} not found.'.format(ip))
+
+        return Orvibo(*devices[ip])
 
     def subscribe(self):
         if self.mac is None:
-            self.__discover()
+            self.__logger.debug('MAC address is not provided. Discovering..')
+            d = Orvibo.discover(self.ip)
+            self.mac = d.mac
 
-        if self.__socket is None:
-            self.__socket = _create_udp_socket()
+        with _orvibo_socket() as s:
+            return self.__subscribe(s)
 
-        subscr_packet = _create_orvibo_packet(SUBSCRIBE, self.mac, SPACES_6, self.rev_mac, SPACES_6)
-        data = self.__send_recv_udp(subscr_packet, SUBSCRIBE_RESP)
+    def __subscribe(self, s):
+        if time.time() - self.__last_subscr_time < 0.1:
+            time.sleep(0.1)
+
+        subscr_packet = Packet(self.ip)
+        subscr_packet.compile(SUBSCRIBE, self.mac, SPACES_6, _reverse_bytes(self.mac), SPACES_6)
+        subscr_packet.send(s)
+        response = subscr_packet.recv(s, SUBSCRIBE_RESP)
         default_state = OFF
-        return data[-1] if data else default_state
+
+        self.__last_subscr_time = time.time()
+        return response.data[-1] if response else None
+
+    def __control_s20(self, switchOn):
+        with _orvibo_socket() as s:
+            curr_state = self.__subscribe(s)
+
+            if self.type != TYPE_SOCKET:
+                self.__logger.warn('Attempt to control device with type {} as socket.'.format(self.type))
+                return
+
+            if curr_state is None:
+                # something wrong with subscribing
+                self.__logger.warn('Subscription failed while controlling wifi socket')
+                return
+
+            state = ON if switchOn else OFF
+            if curr_state == state:
+                # No need to switch on device that is already switched on
+                self.__logger.warn('No need to switch {0} device which is already switched {0}'.format('on' if switchOn else 'off'))
+                return
+
+            self.__logger.debug('Socket is switching {}'.format('on' if switchOn else 'off'))
+            on_off_packet = Packet(self.ip)
+            on_off_packet.compile(CONTROL, self.mac, SPACES_6, ZEROS_4, state)
+            on_off_packet.send(s)
+            if on_off_packet.recv(s, CONTROL_RESP) is not None:
+                self.__logger.info('Socket is switched {} successfuly.'.format('on' if switchOn else 'off'))
+            else:
+                self.__logger.warn('Socket switching {} failed.'.format('on' if switchOn else 'off'))
 
     @property
     def on(self):
@@ -243,99 +295,71 @@ class Orvibo:
 
         :param state: True (on) or False (off).
         """
-        self.__control_s20(ON if state else OFF)
+        self.__control_s20(state)
 
-    def __control_s20(self, state):
-        self.subscribe()
-        if self.type != TYPE_SOCKET:
-            return
+    def learn_ir(self, fname = None, timeout = 15):
+        with _orvibo_socket() as s:
+            if self.__subscribe(s) is None:
+                self.__logger.warn('Subscription failed while entering to Learning IR mode')
+                return
 
-        on_off_packet = _create_orvibo_packet(CONTROL, self.mac, SPACES_6, ZEROS_4, state)
-        data = self.__send_recv_udp(on_off_packet, CONTROL_RESP)
-        return data
+            if self.type != TYPE_IRDA:
+                self.__logger.warn('Attempt to enter to Learning IR mode for device with type {}'.format(self.type))
+                return
+            
+            self.__logger.debug('Entering to Learning IR mode')
 
-    def __send_recv_udp(self, packet, expect = None):
-        """
-        """
-        # Send
-        r, w, x = select.select([], [self.__socket], [], 5)
-        if self.__socket in w:
-            self.__logger.debug('Sending: {}'.format(_debug_data(packet)) )
-            self.__socket.sendto(bytearray(packet), (self.ip, PORT))
+            learn_packet = Packet(self.ip).compile(LEARN_IR, self.mac, SPACES_6, b'\x01\x00', ZEROS_4)
+            learn_packet.send(s)
+            if learn_packet.recv(s, LEARN_IR_RESP) is None:
+                self.__logger.warn('Failed to enter to Learning IR mode')
+                return
 
-        # Receive
-        data = b''
-        for i in range(10):
-            r, w, x = select.select([self.__socket], [], [self.__socket], 1)
-            if self.__socket in r:
-                data, addr = self.__socket.recvfrom(1024)
+            self.__logger.info('Waiting for IR signal...')
+            packet_with_ir = learn_packet.recv(s, timeout=timeout)
+            if packet_with_ir.data is None or len(packet_with_ir.data) == 0:
+                self.__logger.warn('Nothing happend during {} sec'.format(timeout))
+                return
 
-                if expect is not None and data[4:6] != expect:
-                    continue
-            elif self.__socket in x:
-                raise OrviboException('Receiving failed')
+            print(_debug_data(packet_with_ir.data)) 
+            ir_split = packet_with_ir.data.split(self.mac + SPACES_6, 1)
+            ir = ir_split[1][6:]
+
+            if fname is not None:
+                with open(fname, 'wb') as f: 
+                    f.write(ir)
+                self.__logger.info('IR signal got successfuly and saved to "{}" file'.format(fname))
             else:
-                # Nothing to read
-                break
+                self.__logger.info('IR signal got successfuly')
 
-        self.__logger.debug('Received: {}'.format(_debug_data(data)) )
-        return data
-
-    def learn_ir(self, timeout = 15):
-        self.subscribe()
-        self.__enter_ir_learn_mode()
-        return self.__wait_ir_code(timeout)
-
-    def __enter_ir_learn_mode(self):
-        self.subscribe()
-        if self.type != TYPE_IRDA:
-            return
-
-        learn_packet = _create_orvibo_packet(LEARN_IR, self.mac, SPACES_6, b'\x01\x00', ZEROS_4)
-        ir_code = self.__send_recv_udp(learn_packet)
-        return ir_code
-
-    def __wait_ir_code(self, timeout=15):
-        data = b''
-        for i in range(timeout):
-            r, w, x = select.select([self.__socket], [], [self.__socket], 1)
-            if self.__socket in r:
-                data, addr = self.__socket.recvfrom(1024)
-                self.__logger.debug('waiting ir: {}'.format(_debug_data(data)) )
-                break
-            elif self.__socket in x:
-                raise OrviboException('Socket failed')
-            else: 
-                self.__logger.debug('still waiting..')
-
-        self.__logger.debug('data = : {}'.format(_debug_data(data)) )
-        if not data:
-            return b''
-
-        d = data.split(self.mac + SPACES_6, 1)
-        ir = d[1][6:]
-        return ir
-
+            return ir
 
     def emit_ir(self, ir):
-        self.subscribe()
-        if self.type != TYPE_IRDA:
-            return
+        with _orvibo_socket() as s:
+            if self.__subscribe(s) is None:
+                self.__logger.warn('Subscription failed while emiting IR signal')
+                return
 
-        if isinstance(ir, str):
-            self.__logger.debug('IR code from file {}'.format(ir) )
-            with open(ir, 'rb') as f:
-                ir = f.read()
-                self.__logger.debug('IR code read.')
+            if self.type != TYPE_IRDA:
+                self.__logger.warn('Attempt to emit IR signal for device with type {}'.format(self.type))
+                return
 
-        ir_packet = _create_orvibo_packet(BLAST_IR, self.mac, SPACES_6, b'\x65\x00\x00\x00', _random_byte(), _random_byte(), ir)
-        data = self.__send_recv_udp(ir_packet)
+            if isinstance(ir, str):
+                # Read IR code from file
+                self.__logger.debug('Reading IR signal from file "{}"'.format(ir))
+                with open(ir, 'rb') as f:
+                    ir = f.read()
 
+            ir_packet = Packet(self.ip).compile(BLAST_IR, self.mac, SPACES_6, b'\x65\x00\x00\x00', _random_byte(), _random_byte(), ir)
+            ir_packet.send(s)
+            ir_packet.recv(s)
+            self.__logger.info('IR signal emit successfuly')
+        
 if __name__ == '__main__':
 
     import sys
     import getopt
-    
+
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hL:i:s:e:t:", ['loglevel=','ip=','switch=','emit=','teach='])
     except getopt.GetoptError:
@@ -372,37 +396,30 @@ if __name__ == '__main__':
     logging.basicConfig(level=loglevel)
 
     if ip is None and switch is None and emitFile is None and teach is None:
-        for d in discover():
+        for d in Orvibo.discover().values():
+            d = Orvibo(*d)
             print(d)
         sys.exit(0)
 
     if ip is not None:
-        d = discover(ip)
+        d = Orvibo.discover(ip)
         print(d)
-        try:
-            if d.type == TYPE_SOCKET:
-                if switch is None:
+
+        if d.type == TYPE_SOCKET:
+            if switch is None:
+                print('Is enabled:', d.on)
+            else:
+                if d.on != switch:
+                    d.on = switch
                     print('Is enabled:', d.on)
                 else:
-                    if d.on != switch:
-                        d.on = switch
-                        print('Is enabled:', d.on)
-                    else:
-                        print('Already enabled.')
-            elif d.type == TYPE_IRDA:
-                if emitFile is not None:
-                    d.subscribe()
-                    d.emit_ir(emitFile)
-                    print('Done.')
-                elif teach is not None:
-                    ir = d.learn_ir()
-
-                    with open(teach, 'wb') as f: 
-                        f.write(ir)
-        except Exception as e:
-            raise e
-        finally:
-            d.close()
+                    print('Already enabled.')
+        elif d.type == TYPE_IRDA:
+            if emitFile is not None:
+                d.emit_ir(emitFile)
+                print('Done.')
+            elif teach is not None:
+                ir = d.learn_ir(teach)
 
         sys.exit(0)
 
