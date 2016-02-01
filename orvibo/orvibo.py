@@ -110,6 +110,7 @@ class Packet:
     def __init__(self, ip, data = None, type=Request):
         self.ip = ip
         self.data = data
+        self.type = type
 
     def __repr__(self):
         return 'Packet {} {}: {}'.format('to' if self.type == Request else 'from', self.ip, _debug_data(self.packet))
