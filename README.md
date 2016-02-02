@@ -2,7 +2,7 @@
 Module to manipulate Orvibo devices, such as s20 wifi sockets and AllOne IR blasters
 
 ## Refferences
-* Module is based on [python-orvibo](https://github.com/happyleavesaoc/python-orvibo) module which currently supports Orvibo S20 sockets.
+* [python-orvibo](https://github.com/happyleavesaoc/python-orvibo) module which currently supports Orvibo S20 sockets.
 * Lots of info was found in [ninja-allone](https://github.com/Grayda/ninja-allone/blob/master/lib/allone.js) library
 * S20 data analysis by anonymous is [here](http://pastebin.com/0w8N7AJD)
 
@@ -100,8 +100,6 @@ Is socket enabled: False
 device = Orvibo('192.168.1.37')
 ir = device.learn_ir('test.ir', timeout = 15) # AllOne red light is present,
                                               # waiting for ir signal for 15 seconds and stores it to test.ir file
-
-
 if ir is not None:
     # Emit IR code from "test.ir"
     device.emit_ir('test.ir')
