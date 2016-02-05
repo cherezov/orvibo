@@ -8,9 +8,9 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 * S20 data analysis by anonymous is [here](http://pastebin.com/0w8N7AJD)
 
 ## TODO
-- [] Consider RF learning mode and emiting
-- [] Test under linux platform
-- [] Orvibo s20 event handler
+- [ ] Consider RF learning mode and emiting
+- [ ] Test under linux platform
+- [ ] Orvibo s20 event handler
 
 ## Issue
 * ~~After subscribtion to any Orvibo device, all devices becomes undiscoverable~~
