@@ -12,8 +12,6 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 - [x] Test under linux platform. Works on my Ubuntu with python 3.2
 - [ ] Orvibo s20 event handler
 
-## Issue
-* ~~After subscribtion to any Orvibo device, all devices becomes undiscoverable~~
 
 ## Requires
 * Python3 (tested on Win7 with python 3.4 and Ubuntu with python 3.2)
