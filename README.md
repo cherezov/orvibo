@@ -16,7 +16,7 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 * ~~After subscribtion to any Orvibo device, all devices becomes undiscoverable~~
 
 ## Requires
-* Python3
+* Python3 (tested on Win7 with python 3.4 and Ubuntu with python 3.2)
 
 ## Usage
 ### As console app
