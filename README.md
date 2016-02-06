@@ -8,8 +8,8 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 * S20 data analysis by anonymous is [here](http://pastebin.com/0w8N7AJD)
 
 ## TODO
-- [x] RF learning mode and emiting
-- [ ] Test under linux platform
+- [x] Learning and emiting RF 433MHz signal
+- [x] Test under linux platform. Works on my Ubuntu with python 3.2
 - [ ] Orvibo s20 event handler
 
 ## Issue
