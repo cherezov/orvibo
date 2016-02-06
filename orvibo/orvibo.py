@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # @file orvibo.py
 # @author cherezov.pavel@gmail.com
 
