@@ -353,12 +353,12 @@ class Orvibo(object):
     def learn_ir(self, fname = None, timeout = 15):
         """ Backward compatibility
         """
-        return learn(self, fname, timeout) 
+        return self.learn(self, fname, timeout) 
 
     def learn_rf433(self, fname = None, timeout = 15):
         """ Backward compatibility
         """
-        return learn(self, fname, timeout) 
+        return self.learn(self, fname, timeout) 
 
     def learn(self, fname = None, timeout = 15):
         """ Read signal using your remote for future emit
@@ -426,12 +426,12 @@ class Orvibo(object):
     def emit_ir(self, ir):
         """ Backward compatibility
         """
-        return emit(ir)
+        return self.emit(ir)
 
     def emit_rf433(self, rf433):
         """ Backward compatibility
         """
-        return emit(rf433)
+        return self.emit(rf433)
 
     def emit(self, signal):
         """ Emit IR/RF433 signal
