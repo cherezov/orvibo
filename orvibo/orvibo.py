@@ -510,7 +510,11 @@ if __name__ == '__main__':
         sys.exit(0)
 
     if ip is not None:
-        d = Orvibo.discover(ip)
+        try:
+            d = Orvibo.discover(ip)
+        except OrviboException as e:
+            print(e)
+            sys.exit(-1)
         print(d)
 
         if d.type == Orvibo.TYPE_SOCKET:
