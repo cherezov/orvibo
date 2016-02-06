@@ -31,11 +31,11 @@ CONTROL_RESP = CONTROL
 
 SOCKET_EVENT = b'\x73\x66' # something happend with socket TODO:
 
-LEARN_IR = b'\x6c\x73'
-LEARN_IR_RESP = LEARN_IR
+LEARN_IR_RF433 = b'\x6c\x73'
+LEARN_IR_RF433_RESP = LEARN_IR_RF433
 
-BLAST_IR = b'\x69\x63'
-# BLAST_IR_RESP
+BLAST_IR_RF433 = b'\x69\x63'
+# BLAST_IR_RF433_RESP
 
 
 class OrviboException(Exception):
@@ -58,7 +58,7 @@ def _random_byte():
     """
     return bytes([int(256 * random.random())])
 
-placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'BLAST_IR', 'DISCOVER', 'DISCOVER_RESP']
+placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'BLAST_IR_RF433', 'DISCOVER', 'DISCOVER_RESP']
 def _debug_data(data):
     data = binascii.hexlify(bytearray(data))
     for s in placeholders:
@@ -350,37 +350,48 @@ class Orvibo(object):
         self.__control_s20(state)
 
     def learn_ir(self, fname = None, timeout = 15):
+        """ Backward compatibility
+        """
+        return learn(self, fname, timeout) 
+
+    def learn_rf433(self, fname = None, timeout = 15):
+        """ Backward compatibility
+        """
+        return learn(self, fname, timeout) 
+
+    def learn(self, fname = None, timeout = 15):
         """ Read signal using your remote for future emit
+            Supports IR and RF 433MHz remotes
 
         Arguments:
-        fname -- [optional] file name to store IR signal to
-        timeout -- number of seconds to wait for IR signal from remote
+        fname -- [optional] file name to store IR/RF433 signal to
+        timeout -- number of seconds to wait for IR/RF433 signal from remote
 
-        returns -- byte string with IR signal
+        returns -- byte string with IR/RD433 signal
         """
 
         with _orvibo_socket() as s:
             if self.__subscribe(s) is None:
-                self.__logger.warn('Subscription failed while entering to Learning IR mode')
+                self.__logger.warn('Subscription failed while entering to Learning IR/RF433 mode')
                 return
 
             if self.type != Orvibo.TYPE_IRDA:
-                self.__logger.warn('Attempt to enter to Learning IR mode for device with type {}'.format(self.type))
+                self.__logger.warn('Attempt to enter to Learning IR/RF433 mode for device with type {}'.format(self.type))
                 return
 
-            self.__logger.debug('Entering to Learning IR mode')
+            self.__logger.debug('Entering to Learning IR/RF433 mode')
 
-            learn_packet = Packet(self.ip).compile(LEARN_IR, self.mac, SPACES_6, b'\x01\x00', ZEROS_4)
+            learn_packet = Packet(self.ip).compile(LEARN_IR_RF433, self.mac, SPACES_6, b'\x01\x00', ZEROS_4)
             learn_packet.send(s)
-            if learn_packet.recv(s, LEARN_IR_RESP) is None:
-                self.__logger.warn('Failed to enter to Learning IR mode')
+            if learn_packet.recv(s, LEARN_IR_RF433_RESP) is None:
+                self.__logger.warn('Failed to enter to Learning IR/RF433 mode')
                 return
 
-            self.__logger.info('Waiting {} sec for IR signal...'.format(timeout))
+            self.__logger.info('Waiting {} sec for IR/RF433 signal...'.format(timeout))
 
 
-            # LEARN_IR responses with such length will be skipped
-            EMPTY_LEARN_IR = b'\x00\x18'
+            # LEARN_IR_RF433 responses with such length will be skipped
+            EMPTY_LEARN_IR_RF433 = b'\x00\x18'
 
             start_time = time.time()
             while True:
@@ -389,56 +400,66 @@ class Orvibo(object):
                     self.__logger.warn('Nothing happend during {} sec'.format(timeout))
                     return
 
-                packet_with_ir = learn_packet.recv(s, timeout=1)
-                if packet_with_ir is None:
+                packet_with_signal = learn_packet.recv(s, timeout=1)
+                if packet_with_signal is None:
                     self.__logger.info('The rest time: {} sec'.format(int(timeout - elapsed_time)))
                     continue
 
-                if packet_with_ir.length == EMPTY_LEARN_IR:
+                if packet_with_signal.length == EMPTY_LEARN_IR_RF433:
                     continue
 
                 break
 
-            ir_split = packet_with_ir.data.split(self.mac + SPACES_6, 1)
-            ir = ir_split[1][6:]
+            signal_split = packet_with_signal.data.split(self.mac + SPACES_6, 1)
+            signal = signal_split[1][6:]
 
             if fname is not None:
                 with open(fname, 'wb') as f:
-                    f.write(ir)
-                self.__logger.info('IR signal got successfuly and saved to "{}" file'.format(fname))
+                    f.write(signal)
+                self.__logger.info('IR/RF433 signal got successfuly and saved to "{}" file'.format(fname))
             else:
-                self.__logger.info('IR signal got successfuly')
+                self.__logger.info('IR/RF433 signal got successfuly')
 
-            return ir
+            return signal
 
     def emit_ir(self, ir):
-        """ Emit IR signal
+        """ Backward compatibility
+        """
+        return emit(ir)
+
+    def emit_rf433(self, rf433):
+        """ Backward compatibility
+        """
+        return emit(rf433)
+
+    def emit(self, signal):
+        """ Emit IR/RF433 signal
 
         Arguments:
-        ir -- raw signal got with learn_ir method or file name with ir signal to emit
+        signal -- raw signal got with learn method or file name with ir/rf433 signal to emit
 
         returns -- True if emit successs, otherwise False
         """
 
         with _orvibo_socket() as s:
             if self.__subscribe(s) is None:
-                self.__logger.warn('Subscription failed while emiting IR signal')
+                self.__logger.warn('Subscription failed while emiting IR/RF433 signal')
                 return False
 
             if self.type != Orvibo.TYPE_IRDA:
-                self.__logger.warn('Attempt to emit IR signal for device with type {}'.format(self.type))
+                self.__logger.warn('Attempt to emit IR/RF433 signal for device with type {}'.format(self.type))
                 return False
 
-            if isinstance(ir, str):
-                # Read IR code from file
-                self.__logger.debug('Reading IR signal from file "{}"'.format(ir))
-                with open(ir, 'rb') as f:
-                    ir = f.read()
+            if isinstance(signal, str):
+                # Read IR/RF433 code from file
+                self.__logger.debug('Reading IR/RF433 signal from file "{}"'.format(signal))
+                with open(signal, 'rb') as f:
+                    signal = f.read()
 
-            ir_packet = Packet(self.ip).compile(BLAST_IR, self.mac, SPACES_6, b'\x65\x00\x00\x00', _random_byte(), _random_byte(), ir)
-            ir_packet.send(s)
-            ir_packet.recv(s)
-            self.__logger.info('IR signal emit successfuly')
+            signal_packet = Packet(self.ip).compile(BLAST_IR_RF433, self.mac, SPACES_6, b'\x65\x00\x00\x00', _random_byte(), _random_byte(), signal)
+            signal_packet.send(s)
+            signal_packet.recv(s)
+            self.__logger.info('IR/RF433 signal emit successfuly')
             return True
 
 if __name__ == '__main__':
@@ -502,10 +523,10 @@ if __name__ == '__main__':
                     print('Already {}.'.format('enabled' if switch else 'disabled'))
         elif d.type == Orvibo.TYPE_IRDA:
             if emitFile is not None:
-                d.emit_ir(emitFile)
+                d.emit(emitFile)
                 print('Done.')
             elif teach is not None:
-                ir = d.learn_ir(teach)
+                signal = d.learn(teach)
 
         sys.exit(0)
 
