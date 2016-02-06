@@ -19,7 +19,7 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 
 ## Usage
 ### As console app
-#### Discovering all Orvibo devices in the network
+#### Discover all Orvibo devices in the network
 ```shell
 > python orvibo.py
 Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
@@ -53,8 +53,8 @@ Done
 ```
 The same command works to emit grabbed RF 433MHz signal.
 
-### Python3 module
-#### Discovering all devices in the network
+### As python3 module
+#### Discover all devices in the network
 ```python
 from orvibo import Orvibo
 
