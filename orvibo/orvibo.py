@@ -2,6 +2,8 @@
 # @file orvibo.py
 # @author cherezov.pavel@gmail.com
 
+__version__ = "1.0"
+
 from contextlib import contextmanager
 import logging
 import struct
@@ -59,10 +61,10 @@ def _random_byte():
     """
     return bytes([int(256 * random.random())])
 
-placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'BLAST_IR_RF433', 'DISCOVER', 'DISCOVER_RESP']
+_placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'BLAST_IR_RF433', 'DISCOVER', 'DISCOVER_RESP']
 def _debug_data(data):
     data = binascii.hexlify(bytearray(data))
-    for s in placeholders:
+    for s in _placeholders:
         p = binascii.hexlify(bytearray( globals()[s]))
         data = data.replace(p, b" + " + s.encode() + b" + ")
     return data
@@ -469,9 +471,9 @@ if __name__ == '__main__':
     import getopt
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hL:i:s:e:t:", ['loglevel=','ip=','switch=','emit=','teach='])
+        opts, args = getopt.getopt(sys.argv[1:], "hvL:i:s:e:t:", ['loglevel=','ip=','switch=','emit=','teach='])
     except getopt.GetoptError:
-        print('orvibo.py -L <log level> -i <ip> -s <on/off> -e <file.ir> -t <file.ir>')
+        print('orvibo.py -v -L <log level> -i <ip> -s <on/off> -e <file.ir> -t <file.ir>')
         sys.exit(2)
 
     loglevel = logging.WARN
@@ -482,7 +484,10 @@ if __name__ == '__main__':
 
     for opt, arg in opts:
         if opt == '-h':
-            print('orvibo.py -L <log level> -i <ip> -s <on/off> -e <file.ir> -t <file.ir>')
+            print('orvibo.py -v -L <log level> -i <ip> -s <on/off> -e <file.ir> -t <file.ir>')
+            sys.exit()
+        if opt == '-v':
+            print(__version__)
             sys.exit()
         elif opt in ("-L", "--loglevel"):
             if arg.lower() == 'debug':
