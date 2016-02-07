@@ -11,6 +11,7 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 - [x] Learning and emiting RF 433MHz signal
 - [x] Test under linux platform
 - [ ] API for adding new device
+- [ ] Installation script
 - [ ] Orvibo s20 event handler
 
 
