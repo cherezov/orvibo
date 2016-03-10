@@ -45,7 +45,7 @@ class OrviboException(Exception):
     """ Module level exception class.
     """
     def __init__(self, msg):
-        super().__init__(msg)
+        super(OrviboException, self).__init__(msg)
 
 def _reverse_bytes(mac):
     """ Helper method to reverse bytes order.
@@ -524,11 +524,11 @@ if __name__ == '__main__':
 
         if d.type == Orvibo.TYPE_SOCKET:
             if switch is None:
-                print('Is enabled:', d.on)
+                print('Is enabled: {}'.format(d.on))
             else:
                 if d.on != switch:
                     d.on = switch
-                    print('Is enabled:', d.on)
+                    print('Is enabled: {}'.format(d.on))
                 else:
                     print('Already {}.'.format('enabled' if switch else 'disabled'))
         elif d.type == Orvibo.TYPE_IRDA:
