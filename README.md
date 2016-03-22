@@ -8,13 +8,13 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 * S20 data analysis by anonymous is [here](http://pastebin.com/0w8N7AJD)
 
 ## TODO
+- [x] Get rid of keeping connection to the Orvibo device, which breaks further discover
 - [x] Learning and emiting RF 433MHz signal
 - [x] Test under linux platform
 - [x] Consider python 2.7 support
 - [ ] API for adding new device
 - [ ] Installation script
 - [ ] Orvibo s20 event handler
-
 
 ## Requires
 * Python (tested on Win7 with python 2.7 and python 3.4 and Ubuntu with python 3.2)
@@ -55,7 +55,7 @@ Done
 ```
 The same command works to emit grabbed RF 433MHz signal.
 
-### As python3 module
+### As python module
 #### Discover all devices in the network
 ```python
 from orvibo import Orvibo
