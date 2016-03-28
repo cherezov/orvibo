@@ -20,7 +20,7 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 * Python (tested on Win7 with python 2.7 and python 3.4 and Ubuntu with python 3.2)
  
 ## Known applications
-* [OpenHab](https://community.openhab.org/t/orvibo-allone-ir-blaster-guide/9111) guide by comunity user [@robinson](https://community.openhab.org/users/robinson)
+* [OpenHAB](https://community.openhab.org/t/orvibo-allone-ir-blaster-guide/9111) guide by community user [@robinson](https://community.openhab.org/users/robinson)
 
 ## Usage
 ### As console app
