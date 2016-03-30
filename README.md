@@ -25,6 +25,10 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 
 ## Usage
 ### As console app
+#### Overview
+```shell
+orvibo.py [-i <ip> [-s on|off] | [-t <file_to_save_signal>] | [-e <file_with_signal_to_emit>]]
+```
 #### Discover all Orvibo devices in the network
 ```shell
 > python orvibo.py
