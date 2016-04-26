@@ -2,7 +2,7 @@
 # @file orvibo.py
 # @author cherezov.pavel@gmail.com
 
-__version__ = "1.0"
+__version__ = "1.1"
 
 from contextlib import contextmanager
 import logging
@@ -211,15 +211,20 @@ class Orvibo(object):
     def __init__(self, ip, mac = None, type = 'Unknown'):
         self.ip = ip
         self.type = type
-        self.mac = mac
         self.__last_subscr_time = time.time() - 1 # Orvibo doesn't like subscriptions frequently that 1 in 0.1sec
         self.__logger = logging.getLogger('{}@{}'.format(self.__class__.__name__, ip))
 
-        if self.mac is None:
+        if mac is None:
             self.__logger.debug('MAC address is not provided. Discovering..')
             d = Orvibo.discover(self.ip)
             self.mac = d.mac
             self.type = d.type
+        elif isinstance(mac, str):
+            try:
+                self.mac = binascii.unhexlify(mac)
+            except TypeError:
+                self.mac = mac
+
 
     def __repr__(self):
         mac = binascii.hexlify(bytearray(self.mac))
@@ -291,7 +296,6 @@ class Orvibo(object):
         subscr_packet.compile(SUBSCRIBE, self.mac, SPACES_6, _reverse_bytes(self.mac), SPACES_6)
         subscr_packet.send(s)
         response = subscr_packet.recv(s, SUBSCRIBE_RESP)
-        default_state = OFF
 
         self.__last_subscr_time = time.time()
         return response.data[-1] if response else None
@@ -339,7 +343,7 @@ class Orvibo(object):
         Arguments:
         returns -- State of device (True for on/False for off).
         """
-        return self.subscribe() == 1
+        return self.subscribe() == ON
 
     @on.setter
     def on(self, state):
@@ -471,20 +475,22 @@ if __name__ == '__main__':
     import getopt
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hvL:i:s:e:t:", ['loglevel=','ip=','switch=','emit=','teach='])
+        opts, args = getopt.getopt(sys.argv[1:], "hvL:i:t:m:s:e:t:", ['loglevel=','ip=','mac=','type','switch=','emit=','teach='])
     except getopt.GetoptError:
-        print('orvibo.py -v -L <log level> -i <ip> -s <on/off> -e <file.ir> -t <file.ir>')
+        print('orvibo.py -v -L <log level> -i <ip> -m <mac> -t <irda|socket> -s <on/off> -e <file.ir> -t <file.ir>')
         sys.exit(2)
 
     loglevel = logging.WARN
     ip = None
+    mac = None
+    otype = None
     switch = None
     emitFile = None
     teach = None
 
     for opt, arg in opts:
         if opt == '-h':
-            print('orvibo.py -v -L <log level> -i <ip> -s <on/off> -e <file.ir> -t <file.ir>')
+            print('orvibo.py -v -L <log level> -i <ip> -m <mac> -t <irda|socket> -s <on/off> -e <file.ir> -t <file.ir>')
             sys.exit()
         if opt == '-v':
             print(__version__)
@@ -498,6 +504,10 @@ if __name__ == '__main__':
                 loglevel = logging.WARN
         elif opt in ("-i", "--ip"):
             ip = arg
+        elif opt in ("-t", "--type"):
+            otype = arg
+        elif opt in ("-m", "--mac"):
+            mac = arg
         elif opt in ("-s", "--switch"):
             switch = True if arg.lower() == 'on' or arg == '1' else False
         elif opt in ("-e", "--emit"):
@@ -515,12 +525,17 @@ if __name__ == '__main__':
         sys.exit(0)
 
     if ip is not None:
-        try:
-            d = Orvibo.discover(ip)
-        except OrviboException as e:
-            print(e)
-            sys.exit(-1)
-        print(d)
+        
+        if mac is None:
+            try:
+                d = Orvibo.discover(ip)
+            except OrviboException as e:
+                print(e)
+                sys.exit(-1)
+            print(d)
+        else:
+            d = Orvibo(ip, mac, otype)
+            print(d)
 
         if d.type == Orvibo.TYPE_SOCKET:
             if switch is None:
