@@ -475,9 +475,9 @@ if __name__ == '__main__':
     import getopt
 
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hvL:i:t:m:s:e:t:", ['loglevel=','ip=','mac=','type','switch=','emit=','teach='])
+        opts, args = getopt.getopt(sys.argv[1:], "hvL:i:x:m:s:e:t:", ['loglevel=','ip=','mac=','type','switch=','emit=','teach='])
     except getopt.GetoptError:
-        print('orvibo.py -v -L <log level> -i <ip> -m <mac> -t <irda|socket> -s <on/off> -e <file.ir> -t <file.ir>')
+        print('orvibo.py -v -L <log level> -i <ip> -m <mac> -x <irda|socket> -s <on/off> -e <file.ir> -t <file.ir>')
         sys.exit(2)
 
     loglevel = logging.WARN
@@ -490,7 +490,7 @@ if __name__ == '__main__':
 
     for opt, arg in opts:
         if opt == '-h':
-            print('orvibo.py -v -L <log level> -i <ip> -m <mac> -t <irda|socket> -s <on/off> -e <file.ir> -t <file.ir>')
+            print('orvibo.py -v -L <log level> -i <ip> -m <mac> -x <irda|socket> -s <on/off> -e <file.ir> -t <file.ir>')
             sys.exit()
         if opt == '-v':
             print(__version__)
@@ -504,7 +504,7 @@ if __name__ == '__main__':
                 loglevel = logging.WARN
         elif opt in ("-i", "--ip"):
             ip = arg
-        elif opt in ("-t", "--type"):
+        elif opt in ("-x", "--type"):
             otype = arg
         elif opt in ("-m", "--mac"):
             mac = arg
