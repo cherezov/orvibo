@@ -40,7 +40,7 @@ Orvibo[type=irda, ip=192.168.1.37, mac=b'accf4378efdc']
 > python orvibo.py -i 192.168.1.45
 Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
 Is enabled: True
-
+```
 #### State of known device
 Faster than just discovering by ip, since discovering step is skipped here.
 ```shell
@@ -49,7 +49,6 @@ Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
 Is enabled: True
 ```
 Same arguments can be used for all examples below.
-
 #### Switch s20 wifi socket
 ```shell
 > python orvibo.py -i 192.168.1.45 -s on
