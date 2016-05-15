@@ -227,7 +227,10 @@ class Orvibo(object):
 
 
     def __repr__(self):
-        mac = binascii.hexlify(bytearray(self.mac))
+        if hasattr(self, 'mac'):
+            mac = binascii.hexlify(bytearray(self.mac))
+        else:
+            mac = 'Unknown'
         return "Orvibo[type={}, ip={}, mac={}]".format(self.type, self.ip, mac)
 
     @staticmethod
@@ -359,12 +362,12 @@ class Orvibo(object):
     def learn_ir(self, fname = None, timeout = 15):
         """ Backward compatibility
         """
-        return self.learn(self, fname, timeout) 
+        return self.learn(self, fname, timeout)
 
     def learn_rf433(self, fname = None, timeout = 15):
         """ Backward compatibility
         """
-        return self.learn(self, fname, timeout) 
+        return self.learn(self, fname, timeout)
 
     def learn(self, fname = None, timeout = 15):
         """ Read signal using your remote for future emit
@@ -525,7 +528,7 @@ if __name__ == '__main__':
         sys.exit(0)
 
     if ip is not None:
-        
+
         if mac is None:
             try:
                 d = Orvibo.discover(ip)
