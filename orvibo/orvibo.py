@@ -2,7 +2,7 @@
 # @file orvibo.py
 # @author cherezov.pavel@gmail.com
 
-__version__ = "1.1"
+__version__ = "1.2"
 
 from contextlib import contextmanager
 import logging
@@ -12,6 +12,9 @@ import random
 import socket
 import binascii
 import time
+import sys
+
+py3 = sys.version_info[0] == 3
 
 PORT = 10000
 
@@ -86,6 +89,7 @@ def _parse_discover_response(response):
     type = None
     if b'SOC' in response:
         type = Orvibo.TYPE_SOCKET
+
     elif b'IRD' in response:
         type = Orvibo.TYPE_IRDA
 
@@ -213,25 +217,26 @@ class Orvibo(object):
         self.type = type
         self.__last_subscr_time = time.time() - 1 # Orvibo doesn't like subscriptions frequently that 1 in 0.1sec
         self.__logger = logging.getLogger('{}@{}'.format(self.__class__.__name__, ip))
+        self.mac = mac
+
+        # TODO: make this tricky code clear
+        if py3 and isinstance(mac, str):
+            self.mac = binascii.unhexlify(mac)
+        else:
+            try:
+                self.mac = binascii.unhexlify(mac)
+            except:
+                pass
 
         if mac is None:
             self.__logger.debug('MAC address is not provided. Discovering..')
             d = Orvibo.discover(self.ip)
             self.mac = d.mac
             self.type = d.type
-        elif isinstance(mac, str):
-            try:
-                self.mac = binascii.unhexlify(mac)
-            except TypeError:
-                self.mac = mac
-
 
     def __repr__(self):
-        if hasattr(self, 'mac'):
-            mac = binascii.hexlify(bytearray(self.mac))
-        else:
-            mac = 'Unknown'
-        return "Orvibo[type={}, ip={}, mac={}]".format(self.type, self.ip, mac)
+        mac = binascii.hexlify(bytearray(self.mac))
+        return "Orvibo[type={}, ip={}, mac={}]".format(self.type, self.ip, mac.decode('utf-8') if py3 else mac)
 
     @staticmethod
     def discover(ip = None):
@@ -260,6 +265,7 @@ class Orvibo(object):
                     break
 
                 orvibo_type, orvibo_mac = _parse_discover_response(p.data)
+                logger.debug('Discovered values: type={}, mac={}'.format(orvibo_type, orvibo_mac));
 
                 if not orvibo_mac:
                     # Filter ghosts devices
@@ -346,7 +352,9 @@ class Orvibo(object):
         Arguments:
         returns -- State of device (True for on/False for off).
         """
-        return self.subscribe() == ON
+
+        onValue = 1 if py3 else ON
+        return self.subscribe() == onValue
 
     @on.setter
     def on(self, state):
