@@ -33,33 +33,33 @@ orvibo.py [-i <ip> [-m <mac> -x <socket/irda>] [-s on|off] | [-t <file_to_save_s
 #### Discover all Orvibo devices in the network
 ```shell
 > python orvibo.py
-Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
-Orvibo[type=irda, ip=192.168.1.37, mac=b'accf4378efdc']
+Orvibo[type=socket, ip=192.168.1.45, mac='acdf238d1d2e']
+Orvibo[type=irda, ip=192.168.1.37, mac='accf4378efdc']
 ```
 #### Discover device by ip
 ```shell
 > python orvibo.py -i 192.168.1.45
-Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
+Orvibo[type=socket, ip=192.168.1.45, mac='acdf238d1d2e']
 Is enabled: True
 ```
 #### State of known device
 Faster than just discovering by ip, since discovering step is skipped here.
 ```shell
 > python orvibo.py -i 192.168.1.45 -m acdf238d1d2e -x socket
-Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
+Orvibo[type=socket, ip=192.168.1.45, mac='acdf238d1d2e']
 Is enabled: True
 ```
 Same arguments can be used for all examples below.
 #### Switch s20 wifi socket
 ```shell
 > python orvibo.py -i 192.168.1.45 -s on
-Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
+Orvibo[type=socket, ip=192.168.1.45, mac='acdf238d1d2e']
 Already enabled.
 ```
 #### Grab IR code to file
 ```shell
 > python orvibo.py -i 192.168.1.37 -t test.ir
-Orvibo[type=irda, ip=192.168.1.37, mac=b'accf5378dfdc']
+Orvibo[type=irda, ip=192.168.1.37, mac='accf5378dfdc']
 Done
 ```
 The same command works to grab signal from remotes with 433MHz radio frequency.
@@ -67,7 +67,7 @@ The same command works to grab signal from remotes with 433MHz radio frequency.
 #### Emit already grabed IR code
 ```shell
 > python orvibo.py -i 192.168.1.37 -e test.ir
-Orvibo[type=irda, ip=192.168.1.37, mac=b'accf5378dfdc']
+Orvibo[type=irda, ip=192.168.1.37, mac='accf5378dfdc']
 Done
 ```
 The same command works to emit grabbed RF 433MHz signal.
@@ -88,8 +88,8 @@ Result
 ```
 IP = 192.168.1.45
 IP = 192.168.1.37
-Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
-Orvibo[type=irda, ip=192.168.1.37, mac=b'accf4378efdc']
+Orvibo[type=socket, ip=192.168.1.45, mac='acdf238d1d2e']
+Orvibo[type=irda, ip=192.168.1.37, mac='accf4378efdc']
 ```
 
 #### Getting exact device by IP
@@ -99,7 +99,7 @@ print(device)
 ```
 Result:
 ```
-Orvibo[type=socket, ip=192.168.1.45, mac=b'acdf238d1d2e']
+Orvibo[type=socket, ip=192.168.1.45, mac='acdf238d1d2e']
 ```
 
 #### Control S20 wifi socket
@@ -120,7 +120,7 @@ Is socket enabled: False
 **only for devices with type 'irda'**
 ```python
 device = Orvibo('192.168.1.37')
-ir = device.learn('test.ir', timeout = 15) # AllOne red light is present,
+ir = device.learn('test.ir', timeout=15) # AllOne red light is present,
                                            # waiting for ir signal for 15 seconds and stores it to test.ir file
 if ir is not None:
     # Emit IR code from "test.ir"
