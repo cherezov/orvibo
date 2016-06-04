@@ -44,6 +44,7 @@ Is enabled: True
 ```
 #### State of known device
 Faster than just discovering by ip, since discovering step is skipped here.
+*Note*: There is no any mac/type validation!
 ```shell
 > python orvibo.py -i 192.168.1.45 -m acdf238d1d2e -x socket
 Orvibo[type=socket, ip=192.168.1.45, mac='acdf238d1d2e']
