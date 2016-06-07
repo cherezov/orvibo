@@ -2,7 +2,7 @@
 # @file orvibo.py
 # @author cherezov.pavel@gmail.com
 
-__version__ = "1.2"
+__version__ = "1.3"
 
 from contextlib import contextmanager
 import logging
@@ -16,6 +16,7 @@ import sys
 
 py3 = sys.version_info[0] == 3
 
+BROADCAST = '255.255.255.255'
 PORT = 10000
 
 MAGIC = b'\x68\x64'
@@ -106,7 +107,6 @@ def _orvibo_socket():
 
     sock.close()
 
-
 class Packet:
     """ Represents response sender/recepient address and binary data.
     """
@@ -114,7 +114,7 @@ class Packet:
     Request = 'request'
     Response = 'response'
 
-    def __init__(self, ip, data = None, type=Request):
+    def __init__(self, ip = BROADCAST, data = None, type = Request):
         self.ip = ip
         self.data = data
         self.type = type
@@ -236,7 +236,7 @@ class Orvibo(object):
 
     def __repr__(self):
         mac = binascii.hexlify(bytearray(self.mac))
-        return "Orvibo[type={}, ip={}, mac={}]".format(self.type, self.ip, mac.decode('utf-8') if py3 else mac)
+        return "Orvibo[type={}, ip={}, mac={}]".format(self.type, 'Unknown' if self.ip == BROADCAST else self.ip, mac.decode('utf-8') if py3 else mac)
 
     @staticmethod
     def discover(ip = None):
@@ -249,12 +249,11 @@ class Orvibo(object):
                    Orvibo object that represents device at address ip.
         raises -- OrviboException if requested ip not found
         """
-        broadcast = '255.255.255.255'
         devices = {}
         with _orvibo_socket() as s:
             logger = logging.getLogger(Orvibo.__class__.__name__)
             logger.debug('Discovering Orvibo devices')
-            discover_packet = Packet(broadcast)
+            discover_packet = Packet(BROADCAST)
             discover_packet.compile(DISCOVER)
             discover_packet.send(s)
 
@@ -485,10 +484,13 @@ if __name__ == '__main__':
     import sys
     import getopt
 
+    def usage():
+        print('orvibo.py [-v] [-L <log level>] [-i <ip>] [-m <mac> -x <irda|socket>] [-s <on/off>] [-e <file.ir>] [-t <file.ir>]')
+
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hvL:i:x:m:s:e:t:", ['loglevel=','ip=','mac=','type','switch=','emit=','teach='])
     except getopt.GetoptError:
-        print('orvibo.py -v -L <log level> -i <ip> -m <mac> -x <irda|socket> -s <on/off> -e <file.ir> -t <file.ir>')
+        usage()
         sys.exit(2)
 
     loglevel = logging.WARN
@@ -501,7 +503,7 @@ if __name__ == '__main__':
 
     for opt, arg in opts:
         if opt == '-h':
-            print('orvibo.py -v -L <log level> -i <ip> -m <mac> -x <irda|socket> -s <on/off> -e <file.ir> -t <file.ir>')
+            usage()
             sys.exit()
         if opt == '-v':
             print(__version__)
@@ -526,43 +528,45 @@ if __name__ == '__main__':
         elif opt in ("-t", "--teach"):
             teach = arg
 
-
     logging.basicConfig(level=loglevel)
 
-    if ip is None and switch is None and emitFile is None and teach is None:
+    if ip is None and mac is None and switch is None and emitFile is None and teach is None:
+        # Nothing passed as parameter
         for d in Orvibo.discover().values():
             d = Orvibo(*d)
             print(d)
         sys.exit(0)
 
-    if ip is not None:
-
+    if ip is None and mac is not None and otype is not None:
+        # IP is skipped
+        d = Orvibo(BROADCAST, mac, otype)
+    elif ip is not None:
         if mac is None:
             try:
                 d = Orvibo.discover(ip)
             except OrviboException as e:
                 print(e)
                 sys.exit(-1)
-            print(d)
         else:
             d = Orvibo(ip, mac, otype)
-            print(d)
+    else:
+        usage()
+        sys.exit(1)
 
-        if d.type == Orvibo.TYPE_SOCKET:
-            if switch is None:
+    print(d)
+
+    if d.type == Orvibo.TYPE_SOCKET:
+        if switch is None:
+            print('Is enabled: {}'.format(d.on))
+        else:
+            if d.on != switch:
+                d.on = switch
                 print('Is enabled: {}'.format(d.on))
             else:
-                if d.on != switch:
-                    d.on = switch
-                    print('Is enabled: {}'.format(d.on))
-                else:
-                    print('Already {}.'.format('enabled' if switch else 'disabled'))
-        elif d.type == Orvibo.TYPE_IRDA:
-            if emitFile is not None:
-                d.emit(emitFile)
-                print('Done.')
-            elif teach is not None:
-                signal = d.learn(teach)
-
-        sys.exit(0)
-
+                print('Already {}.'.format('enabled' if switch else 'disabled'))
+    elif d.type == Orvibo.TYPE_IRDA:
+        if emitFile is not None:
+            d.emit(emitFile)
+            print('Done.')
+        elif teach is not None:
+            signal = d.learn(teach)
