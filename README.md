@@ -3,9 +3,9 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 
 
 ## Refferences
-* [python-orvibo](https://github.com/happyleavesaoc/python-orvibo) module which currently supports Orvibo S20 sockets.
 * Lots of info was found in [ninja-allone](https://github.com/Grayda/ninja-allone/blob/master/lib/allone.js) library
 * S20 data analysis by anonymous is [here](http://pastebin.com/0w8N7AJD)
+* [python-orvibo](https://github.com/happyleavesaoc/python-orvibo) similar module, but currently supports Orvibo S20 sockets only.
 
 ## TODO
 - [x] Get rid of keeping connection to the Orvibo device, which breaks further discover
@@ -23,6 +23,8 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 ## Known applications
 *please let me know about apps not listed here :octocat:*
 * [OpenHAB](https://community.openhab.org/t/orvibo-allone-ir-blaster-guide/9111) guide by community user [@robinson](https://community.openhab.org/users/robinson)
+* [Samsung Artic](https://www.artik.io/works-with-cloud/orbivo-wiwo/) guide cloud setup
+* 
 
 ## Usage
 ### As console app
