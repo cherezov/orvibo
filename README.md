@@ -30,7 +30,7 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 ### As console app
 #### Overview
 ```shell
-orvibo.py [-i <ip> [-m <mac> -x <socket/irda>] [-s on|off] | [-t <file_to_save_signal>] | [-e <file_with_signal_to_emit>]]
+orvibo.py [-i <ip>] | [-m <mac> -x <socket/irda>] [-s on|off] | [-t <file_to_save_signal>] | [-e <file_with_signal_to_emit>]]
 ```
 #### Discover all Orvibo devices in the network
 ```shell
@@ -48,8 +48,8 @@ Is enabled: True
 Faster than just discovering by ip, since discovering step is skipped here.
 *Note*: There is no any mac/type validation!
 ```shell
-> python orvibo.py -i 192.168.1.45 -m acdf238d1d2e -x socket
-Orvibo[type=socket, ip=192.168.1.45, mac='acdf238d1d2e']
+> python orvibo.py -m acdf238d1d2e -x socket
+Orvibo[type=socket, ip=unknown, mac='acdf238d1d2e']
 Is enabled: True
 ```
 Same arguments can be used for all examples below.
