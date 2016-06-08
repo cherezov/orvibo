@@ -44,7 +44,7 @@ Orvibo[type=irda, ip=192.168.1.37, mac='accf4378efdc']
 Orvibo[type=socket, ip=192.168.1.45, mac='acdf238d1d2e']
 Is enabled: True
 ```
-#### State of known device
+#### State of known device [draft]
 Faster than just discovering by ip, since discovering step is skipped here.
 *Note*: There is no any mac/type validation!
 ```shell
