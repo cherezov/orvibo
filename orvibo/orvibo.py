@@ -2,6 +2,11 @@
 # @file orvibo.py
 # @author cherezov.pavel@gmail.com
 
+# Change log:
+#   1.0 Initial stable version
+#   1.1 Mac and type arguments introduced for fast control known devices
+#   1.2 Python3 discover bug fixed
+#   1.3 ip argument is now optional in case of mac and type are passed
 __version__ = "1.3"
 
 from contextlib import contextmanager
