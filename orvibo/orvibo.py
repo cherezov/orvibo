@@ -7,7 +7,8 @@
 #   1.1 Mac and type arguments introduced for fast control known devices
 #   1.2 Python3 discover bug fixed
 #   1.3 ip argument is now optional in case of mac and type are passed
-__version__ = "1.3"
+#   1.4 keep connection functionality implemented
+__version__ = "1.4"
 
 from contextlib import contextmanager
 import logging
@@ -41,7 +42,7 @@ SUBSCRIBE_RESP = SUBSCRIBE
 CONTROL = b'\x64\x63'
 CONTROL_RESP = CONTROL
 
-SOCKET_EVENT = b'\x73\x66' # something happend with socket TODO:
+SOCKET_EVENT = b'\x73\x66' # something happend with socket
 
 LEARN_IR_RF433 = b'\x6c\x73'
 LEARN_IR_RF433_RESP = LEARN_IR_RF433
@@ -101,16 +102,31 @@ def _parse_discover_response(response):
 
     return (type, mac)
 
-@contextmanager
-def _orvibo_socket():
+def _create_orvibo_socket(ip=''):
+    """ Creates socket to talk with Orvibo devices.
+
+    Arguments:
+    ip - ip address of the Orvibo device or empty string in case of broadcasting discover packet.
+    """
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    for opt in [socket.SO_BROADCAST, socket.SO_REUSEADDR,socket.SO_BROADCAST]:
+    for opt in [socket.SO_BROADCAST, socket.SO_REUSEADDR, socket.SO_BROADCAST]:
         sock.setsockopt(socket.SOL_SOCKET, opt, 1)
-    sock.bind(('', PORT))
+    if ip:
+        sock.connect((ip, PORT))
+    else:
+        sock.bind((ip, PORT))
+    return sock
+
+@contextmanager
+def _orvibo_socket(external_socket = None):
+    sock = _create_orvibo_socket() if external_socket is None else external_socket
 
     yield sock
 
-    sock.close()
+    if external_socket is None:
+        sock.close()
+    else:
+        pass
 
 class Packet:
     """ Represents response sender/recepient address and binary data.
@@ -222,6 +238,7 @@ class Orvibo(object):
         self.type = type
         self.__last_subscr_time = time.time() - 1 # Orvibo doesn't like subscriptions frequently that 1 in 0.1sec
         self.__logger = logging.getLogger('{}@{}'.format(self.__class__.__name__, ip))
+        self.__socket = None
         self.mac = mac
 
         # TODO: make this tricky code clear
@@ -238,6 +255,38 @@ class Orvibo(object):
             d = Orvibo.discover(self.ip)
             self.mac = d.mac
             self.type = d.type
+
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        if self.__socket is not None:
+            try:
+                self.__socket.close()
+            except socket.error:
+                # socket seems not alive
+                pass
+            self.__socket = None
+
+    @property
+    def keep_connection(self):
+        """ Keeps connection to the Orvibo device.
+        """
+        return self.__socket is not None
+
+    @keep_connection.setter
+    def keep_connection(self, value):
+        """ Keeps connection to the Orvibo device.
+        """
+        # Close connection if alive
+        self.close()
+
+        if value:
+            self.__socket = _create_orvibo_socket(self.ip)
+            if self.__subscribe(self.__socket) is None:
+                raise OrviboException('Connection subscription error.')
+        else:
+            self.close()
 
     def __repr__(self):
         mac = binascii.hexlify(bytearray(self.mac))
@@ -281,7 +330,7 @@ class Orvibo(object):
             return devices
 
         if ip not in devices.keys():
-            raise OrviboException('Device ip={} not found.'.format(ip))
+            raise OrviboException('Device ip={} not found in {}.'.format(ip, devices.keys()))
 
         return Orvibo(*devices[ip])
 
@@ -290,7 +339,7 @@ class Orvibo(object):
 
         returns -- last response byte, which represents device state
         """
-        with _orvibo_socket() as s:
+        with _orvibo_socket(self.__socket) as s:
             return self.__subscribe(s)
 
     def __subscribe(self, s):
@@ -322,7 +371,7 @@ class Orvibo(object):
         returns -- True if switch success, otherwise False
         """
 
-        with _orvibo_socket() as s:
+        with _orvibo_socket(self.__socket) as s:
             curr_state = self.__subscribe(s)
 
             if self.type != Orvibo.TYPE_SOCKET:
@@ -392,7 +441,7 @@ class Orvibo(object):
         returns -- byte string with IR/RD433 signal
         """
 
-        with _orvibo_socket() as s:
+        with _orvibo_socket(self.__socket) as s:
             if self.__subscribe(s) is None:
                 self.__logger.warn('Subscription failed while entering to Learning IR/RF433 mode')
                 return
@@ -463,7 +512,7 @@ class Orvibo(object):
         returns -- True if emit successs, otherwise False
         """
 
-        with _orvibo_socket() as s:
+        with _orvibo_socket(self.__socket) as s:
             if self.__subscribe(s) is None:
                 self.__logger.warn('Subscription failed while emiting IR/RF433 signal')
                 return False
