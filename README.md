@@ -132,3 +132,35 @@ if ir is not None:
     # device.emit(ir)
 ```
 The same code works to grab/emit signal from remotes with 433MHz radio frequency.
+
+Keeping connection to Orvibo device
+
+By default module doesn't keep connection to the Orvibo device to allow user not thinking about unplanned disconnections from device by whatever reasons (power outage, wifi router reboot, etc). Such behavior actually leads to valuable delay between sending request and applying command on the Orvibo device. Module allows to keep the connection and decrease the latency via setting keep_connection property to True. In this way closing connection and handling socket errors duties lie on orvibo python library user.
+
+import socket
+
+device = Orvibo('192.168.1.45')
+device.keep_connection = True
+
+def blink_socket(device):
+    try:
+        device.on = not device.on
+    except socket.error:
+        # Reset connection to device    
+        device.keep_connection = True
+
+try:
+    # Note: now socket errors are handled by user!
+
+    # Blink the socket ^_^
+    for i in range(5):
+        blink_socket(device)
+
+    # You also may stop using connection anytime
+    # device.keep_connection = False
+finally:
+    # Connection must be closed explicitly.
+    # via
+    device.close()
+    # or via
+    # device.keep_connection = False
