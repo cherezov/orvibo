@@ -8,7 +8,7 @@
 #   1.2 Python3 discover bug fixed
 #   1.3 ip argument is now optional in case of mac and type are passed
 #   1.4 keep connection functionality implemented
-__version__ = "1.4"
+__version__ = "1.4.1"
 
 from contextlib import contextmanager
 import logging
@@ -71,13 +71,13 @@ def _random_byte():
     """
     return bytes([int(256 * random.random())])
 
-_placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'BLAST_IR_RF433', 'DISCOVER', 'DISCOVER_RESP']
+_placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'LEARN_IR_RF433', 'BLAST_IR_RF433', 'DISCOVER', 'DISCOVER_RESP']
 def _debug_data(data):
     data = binascii.hexlify(bytearray(data))
     for s in _placeholders:
         p = binascii.hexlify(bytearray( globals()[s]))
         data = data.replace(p, b" + " + s.encode() + b" + ")
-    return data
+    return data[3:]
 
 def _parse_discover_response(response):
     """ Extracts MAC address and Type of the device from response.
@@ -141,7 +141,7 @@ class Packet:
         self.type = type
 
     def __repr__(self):
-        return 'Packet {} {}: {}'.format('to' if self.type == Request else 'from', self.ip, _debug_data(self.packet))
+        return 'Packet {} {}: {}'.format('to' if self.type == self.Request else 'from', self.ip, _debug_data(self.data))
 
     @property
     def cmd(self):
@@ -477,9 +477,14 @@ class Orvibo(object):
                     continue
 
                 if packet_with_signal.length == EMPTY_LEARN_IR_RF433:
+                    self.__logger.debug('Skipped:\nEmpty packet = {}'.format(_debug_data(packet_with_signal.data)))
                     continue
 
-                break
+                if packet_with_signal.cmd == LEARN_IR_RF433:
+                    self.__logger.debug('SUCCESS:\n{}'.format(_debug_data(packet_with_signal.data)))
+                    break
+
+                self.__logger.debug('Skipped:\nUnexpected packet = {}'.format(_debug_data(packet_with_signal.data)))
 
             signal_split = packet_with_signal.data.split(self.mac + SPACES_6, 1)
             signal = signal_split[1][6:]
