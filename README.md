@@ -1,5 +1,5 @@
 # orvibo
-Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliexpress.com/item/Orvibo-S20-Wifi-Cell-Phone-Power-Socket-Wireless-Timer-Switch-Wall-Plug-Phone-Wireless-Remote-Control/32357053063.html) and [AllOne IR/RF433Mhz blasters](http://www.aliexpress.com/item/Orvibo-Allone-Wiwo-R1-Intelligent-house-Control-Center-Smart-Home-WIFI-IR-RF-Wireless-Remote-Switch/32247638788.html) to control whatever devices via emiting IR signal (TVs, AV receivers, air conditioners, etc) or via emiting RF 433MHz signal [Issue#7](https://github.com/cherezov/orvibo/issues/7) (garage doors, radio toys, [Orvibo Smart Switches](http://www.aliexpress.com/item/Orvibo-T030-Smart-Switch-timer-metope-switch-wireless-remote-control-Smart-home-appliance-City-impression-3/32228748100.html))
+Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliexpress.com/item/Orvibo-S20-Wifi-Cell-Phone-Power-Socket-Wireless-Timer-Switch-Wall-Plug-Phone-Wireless-Remote-Control/32357053063.html) and [AllOne IR blasters](http://www.aliexpress.com/item/Orvibo-Allone-Wiwo-R1-Intelligent-house-Control-Center-Smart-Home-WIFI-IR-RF-Wireless-Remote-Switch/32247638788.html) to control whatever devices via emiting IR signal (TVs, AV receivers, air conditioners, etc)
 
 
 ## Refferences
@@ -9,13 +9,13 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 
 ## TODO
 - [x] Get rid of keeping connection to the Orvibo device, which breaks further discover
-- [ ] [Issue#7](https://github.com/cherezov/orvibo/issues/7) Learning and emiting RF 433MHz signal
 - [x] Test under linux platform
 - [x] Consider python 2.7 support
 - [x] Add mac and type cmd line arguments in order decrease execution latency (ver 1.1)
 - [ ] API for adding new Orvibo device to the network
 - [ ] Python setup script
 - [ ] Orvibo s20 event handler
+- [ ] Learning and emiting RF 433MHz signal [Issue#7](https://github.com/cherezov/orvibo/issues/7)
 
 ## Requires
 * Python (tested on Win7 with python 2.7 and python 3.4 and Ubuntu with python 3.2)
@@ -65,16 +65,12 @@ Already enabled.
 Orvibo[type=irda, ip=192.168.1.37, mac='accf5378dfdc']
 Done
 ```
-The same command works to grab signal from remotes with 433MHz radio frequency.
-
 #### Emit already grabed IR code
 ```shell
 > python orvibo.py -i 192.168.1.37 -e test.ir
 Orvibo[type=irda, ip=192.168.1.37, mac='accf5378dfdc']
 Done
 ```
-The same command works to emit grabbed RF 433MHz signal.
-
 ### As python module
 #### Discover all devices in the network
 ```python
@@ -119,7 +115,7 @@ Is socket enabled: True
 Is socket enabled: False
 ```
 
-#### Learning AllOne IR/RF433MHz blaster
+#### Learning AllOne IR blaster
 **only for devices with type 'irda'**
 ```python
 device = Orvibo('192.168.1.37')
@@ -131,8 +127,6 @@ if ir is not None:
     # Or with the same result
     # device.emit(ir)
 ```
-The same code works to grab/emit signal from remotes with 433MHz radio frequency.
-
 #### Keeping connection to Orvibo device
 
 By default module doesn't keep connection to the Orvibo device to allow user not thinking about unplanned disconnections from device by whatever reasons (power outage, wifi router reboot, etc). Such behavior actually leads to valuable delay between sending request and applying command on the Orvibo device. Module allows to keep the connection and decrease the latency via setting keep_connection property to True. In this way closing connection and handling socket errors duties lie on orvibo python library user.
