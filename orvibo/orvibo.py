@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+
 # @file orvibo.py
 # @author cherezov.pavel@gmail.com
 
@@ -8,7 +9,9 @@
 #   1.2 Python3 discover bug fixed
 #   1.3 ip argument is now optional in case of mac and type are passed
 #   1.4 keep connection functionality implemented
-__version__ = "1.4.1"
+#   1.4.1 Learn/Emit logging improved
+#   1.5 Learn/Emit Orvibo SmartSwitch RF433 MHz signal support added
+__version__ = "1.5"
 
 from contextlib import contextmanager
 import logging
@@ -44,12 +47,13 @@ CONTROL_RESP = CONTROL
 
 SOCKET_EVENT = b'\x73\x66' # something happend with socket
 
-LEARN_IR_RF433 = b'\x6c\x73'
-LEARN_IR_RF433_RESP = LEARN_IR_RF433
+LEARN_IR = b'\x6c\x73'
+LEARN_IR_RESP = LEARN_IR
 
-BLAST_IR_RF433 = b'\x69\x63'
-# BLAST_IR_RF433_RESP
+BLAST_IR = b'\x69\x63'
 
+BLAST_RF433 = CONTROL
+LEARN_RF433 = CONTROL
 
 class OrviboException(Exception):
     """ Module level exception class.
@@ -71,7 +75,16 @@ def _random_byte():
     """
     return bytes([int(256 * random.random())])
 
-_placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'LEARN_IR_RF433', 'BLAST_IR_RF433', 'DISCOVER', 'DISCOVER_RESP']
+def _random_n_bytes(n):
+    res = b''
+    for n in range(n):
+        res += _random_byte()
+    return res
+
+def _packet_id():
+    return _random_n_bytes(2)
+
+_placeholders = ['MAGIC', 'SPACES_6', 'ZEROS_4', 'CONTROL', 'CONTROL_RESP', 'SUBSCRIBE', 'LEARN_IR', 'BLAST_RF433', 'BLAST_IR', 'DISCOVER', 'DISCOVER_RESP' ]
 def _debug_data(data):
     data = binascii.hexlify(bytearray(data))
     for s in _placeholders:
@@ -209,6 +222,16 @@ class Packet:
                 break
 
         return response
+
+    @staticmethod
+    def recv_all(sock, expectResponseType = None, timeout = 10):
+       res = None
+       while True:
+           resp = Packet.recv(sock, expectResponseType, timeout)
+           if resp is None:
+                break
+           res = resp
+       return res
 
     def compile(self, *args):
         """ Assemblies packet to send to orvibo device.
@@ -357,10 +380,10 @@ class Orvibo(object):
         subscr_packet = Packet(self.ip)
         subscr_packet.compile(SUBSCRIBE, self.mac, SPACES_6, _reverse_bytes(self.mac), SPACES_6)
         subscr_packet.send(s)
-        response = subscr_packet.recv(s, SUBSCRIBE_RESP)
+        response = subscr_packet.recv_all(s, SUBSCRIBE_RESP)
 
         self.__last_subscr_time = time.time()
-        return response.data[-1] if response else None
+        return response.data[-1] if response is not None else None
 
     def __control_s20(self, switchOn):
         """ Switch S20 wifi socket on/off
@@ -425,10 +448,18 @@ class Orvibo(object):
         """
         return self.learn(self, fname, timeout)
 
-    def learn_rf433(self, fname = None, timeout = 15):
-        """ Backward compatibility
+    def learn_rf433(self, fname = None):
+        """ Learn Orvibo SmartSwitch RF433 signal.
         """
-        return self.learn(self, fname, timeout)
+        # It is actually the same packet as for RF433 signal emit.
+        key = _random_n_bytes(7)
+        
+        if fname is not None:
+            with open(fname, 'wb') as f:
+                f.write(key)
+
+        self._learn_emit_rf433(1, key)
+        return key
 
     def learn(self, fname = None, timeout = 15):
         """ Read signal using your remote for future emit
@@ -452,17 +483,17 @@ class Orvibo(object):
 
             self.__logger.debug('Entering to Learning IR/RF433 mode')
 
-            learn_packet = Packet(self.ip).compile(LEARN_IR_RF433, self.mac, SPACES_6, b'\x01\x00', ZEROS_4)
+            learn_packet = Packet(self.ip).compile(LEARN_IR, self.mac, SPACES_6, b'\x01\x00', ZEROS_4)
             learn_packet.send(s)
-            if learn_packet.recv(s, LEARN_IR_RF433_RESP) is None:
+            if learn_packet.recv(s, LEARN_IR_RESP) is None:
                 self.__logger.warn('Failed to enter to Learning IR/RF433 mode')
                 return
 
             self.__logger.info('Waiting {} sec for IR/RF433 signal...'.format(timeout))
 
 
-            # LEARN_IR_RF433 responses with such length will be skipped
-            EMPTY_LEARN_IR_RF433 = b'\x00\x18'
+            # LEARN_IR responses with such length will be skipped
+            EMPTY_LEARN_IR = b'\x00\x18'
 
             start_time = time.time()
             while True:
@@ -476,11 +507,11 @@ class Orvibo(object):
                     self.__logger.info('The rest time: {} sec'.format(int(timeout - elapsed_time)))
                     continue
 
-                if packet_with_signal.length == EMPTY_LEARN_IR_RF433:
+                if packet_with_signal.length == EMPTY_LEARN_IR:
                     self.__logger.debug('Skipped:\nEmpty packet = {}'.format(_debug_data(packet_with_signal.data)))
                     continue
 
-                if packet_with_signal.cmd == LEARN_IR_RF433:
+                if packet_with_signal.cmd == LEARN_IR:
                     self.__logger.debug('SUCCESS:\n{}'.format(_debug_data(packet_with_signal.data)))
                     break
 
@@ -498,134 +529,221 @@ class Orvibo(object):
 
             return signal
 
-    def emit_ir(self, ir):
-        """ Backward compatibility
+    def _learn_emit_rf433(self, on, key):
+        """ Learn/emit SmartSwitch RF433 signal.
         """
-        return self.emit(ir)
+        with _orvibo_socket(self.__socket) as s:
+                                                                                     # this also comes with 64 62 packet
+            signal_packet = Packet(self.ip).compile(BLAST_RF433, self.mac, SPACES_6, key[:4],\
+                        _packet_id(), b'\x01' if on else b'\x00', b'\x29\x00', key[4:])
+            signal_packet.send(s)
+            signal_packet.recv_all(s)
+            self.__logger.debug('{}'.format(signal_packet))
 
-    def emit_rf433(self, rf433):
-        """ Backward compatibility
+    def emit_rf433(self, on, fname):
+        """ Emit RF433 signal for Orvibo SmartSwitch only.
         """
-        return self.emit(rf433)
+        key = b''
+        with open(fname, 'rb') as f:
+            key = f.read()
 
-    def emit(self, signal):
-        """ Emit IR/RF433 signal
+        self._learn_emit_rf433(on, key)
+
+
+    def emit_ir(self, signal):
+        """ Emit IR signal
 
         Arguments:
-        signal -- raw signal got with learn method or file name with ir/rf433 signal to emit
+        signal -- raw signal got with learn method or file name with ir signal to emit
 
         returns -- True if emit successs, otherwise False
         """
 
         with _orvibo_socket(self.__socket) as s:
             if self.__subscribe(s) is None:
-                self.__logger.warn('Subscription failed while emiting IR/RF433 signal')
+                self.__logger.warn('Subscription failed while emiting IR signal')
                 return False
 
             if self.type != Orvibo.TYPE_IRDA:
-                self.__logger.warn('Attempt to emit IR/RF433 signal for device with type {}'.format(self.type))
+                self.__logger.warn('Attempt to emit IR signal for device with type {}'.format(self.type))
                 return False
 
             if isinstance(signal, str):
-                # Read IR/RF433 code from file
-                self.__logger.debug('Reading IR/RF433 signal from file "{}"'.format(signal))
+                # Read IR code from file
+                self.__logger.debug('Reading IR signal from file "{}"'.format(signal))
                 with open(signal, 'rb') as f:
                     signal = f.read()
 
-            signal_packet = Packet(self.ip).compile(BLAST_IR_RF433, self.mac, SPACES_6, b'\x65\x00\x00\x00', _random_byte(), _random_byte(), signal)
+            signal_packet = Packet(self.ip).compile(BLAST_IR, self.mac, SPACES_6, b'\x65\x00\x00\x00', _packet_id(), signal)
             signal_packet.send(s)
-            signal_packet.recv(s)
-            self.__logger.info('IR/RF433 signal emit successfuly')
+            signal_packet.recv_all(s)
+            self.__logger.info('IR signal emit successfuly')
             return True
 
+def usage():
+   print('orvibo.py [-v] [-L <log level>] [-i <ip>] [-m <mac> -x <irda|socket>] [-s <on/off>] [-e <file.ir>] [-t <file.ir>] [-r]')
+   print('-i <ip>    - ip address of the Orvibo device, e.g 192.168.1.10')
+   print('-m <mac>   - mac address string, e.g acdf4377dfcc')
+   print('             Not valid without -i and -x options')
+   print('-x <type>  - type of the Orvibo device: socket, irda')
+   print('             Not valid without -i and -m options')
+   print('-s <value> - switch on/off Orvibo Smart Socket: on, off')
+   print('             Not valid without -i option and device types other than socket')
+   print('-t <fname> - turns Orvibo AllOne into learning mode for 15 seconds or until catching IR signal')
+   print('             Signal will be saved in "fname" file')
+   print('             Not valid without -i option and device types other than "irda"')
+   print('-e <fname> - emits IR signal stored in "fname" file')
+   print('             Not valid without -i option or device types other than "irda"')
+   print('-r         - tells module to teach/emit RF433 signal for Orvibo SmartSwitch')
+   print('             Not valid without -i option or device types other than "irda"')
+   print('-v         - prints module version')
+   print('-L <level> - extended output information: debug, info, warn')
+   print()
+   print('Examples:')
+   print('Discover all Orvibo devices on the network:')
+   print('> orvibo.py')
+   print('Discover all Orvibo device by ip:')
+   print('> orvibo.py -i 192.168.1.10')
+   print('Discover all Orvibo known device. Much faster than previous one:')
+   print('> orvibo.py -i 192.168.1.10 -m acdf4377dfcc -x socket')
+   print('Switch socket on:')
+   print('> orvibo.py -i 192.168.1.10 -m acdf4377dfcc -x socket -s on')
+   print('Grab IR signal:')
+   print('> orvibo.py -i 192.168.1.20 -m bdea54883ade -x irda -t signal.ir')
+   print('Emit IR signal:')
+   print('> orvibo.py -i 192.168.1.20 -m bdea54883ade -x irda -e signal.ir')
+   print('Grab SmartSwitch RF signal:')
+   print('> orvibo.py -i 192.168.1.20 -m bdea54883ade -x irda -t smartswitch.rf -r')
+   print('Emit SmartSwitch RF signal:')
+   print('> orvibo.py -i 192.168.1.20 -m bdea54883ade -x irda -e signal.ir -r -s on')
+
 if __name__ == '__main__':
+   import sys
+   import getopt
 
-    import sys
-    import getopt
+   class Opts:
+      def __init__(self):
+         self.help = False
+         self.version = False
+         self.log_level = logging.WARN
+         self.ip = None
+         self.mac = None
+         self.otype = None
+         self.switch = None
+         self.emitFile = None
+         self.teachFile = None
+         self.rf = False
 
-    def usage():
-        print('orvibo.py [-v] [-L <log level>] [-i <ip>] [-m <mac> -x <irda|socket>] [-s <on/off>] [-e <file.ir>] [-t <file.ir>]')
+      def init(self):
+         try:
+            opts, args = getopt.getopt(sys.argv[1:], "rhvL:i:x:m:s:e:t:", ['loglevel=','ip=','mac=','type','socket=','emit=','teach=','zeach='])
+         except getopt.GetoptError:
+            return False
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "hvL:i:x:m:s:e:t:", ['loglevel=','ip=','mac=','type','switch=','emit=','teach='])
-    except getopt.GetoptError:
-        usage()
-        sys.exit(2)
+         for opt, arg in opts:
+            if opt == ('-h', '--help'):
+               self.help = True
+            elif opt in ('-v', '--version'):
+               self.version = True
+            elif opt in ('-L', '--loglevel'):
+               if arg.lower() == 'debug':
+                   self.log_level = logging.DEBUG
+               elif arg.lower() == 'info':
+                   self.log_level = logging.INFO
+               elif arg.lower() == 'warn':
+                   self.log_level = logging.WARN
+            elif opt in ('-i', '--ip'):
+               self.ip = arg
+            elif opt in ('-x', '--type'):
+               self.otype = arg
+            elif opt in ('-m', '--mac'):
+               self.mac = arg
+            elif opt in ('-s', '--socket'):
+               self.switch = True if arg.lower() == 'on' or arg == '1' else False
+            elif opt in ('-e', '--emit'):
+               self.emitFile = arg
+            elif opt in ('-t', '--teach'):
+               self.teachFile = arg
+            elif opt in ("-r", "--rf"):
+               self.rf = True
+         return True
 
-    loglevel = logging.WARN
-    ip = None
-    mac = None
-    otype = None
-    switch = None
-    emitFile = None
-    teach = None
+      def discover_all(self):
+         return self.ip is None and self.mac is None and self.switch is None and self.emitFile is None and self.teachFile is None
 
-    for opt, arg in opts:
-        if opt == '-h':
-            usage()
-            sys.exit()
-        if opt == '-v':
-            print(__version__)
-            sys.exit()
-        elif opt in ("-L", "--loglevel"):
-            if arg.lower() == 'debug':
-                loglevel = logging.DEBUG
-            elif arg.lower() == 'info':
-                loglevel = logging.INFO
-            elif arg.lower() == 'warn':
-                loglevel = logging.WARN
-        elif opt in ("-i", "--ip"):
-            ip = arg
-        elif opt in ("-x", "--type"):
-            otype = arg
-        elif opt in ("-m", "--mac"):
-            mac = arg
-        elif opt in ("-s", "--switch"):
-            switch = True if arg.lower() == 'on' or arg == '1' else False
-        elif opt in ("-e", "--emit"):
-            emitFile = arg
-        elif opt in ("-t", "--teach"):
-            teach = arg
+      def ip_skipped(self):
+         return self.ip is None and self.mac is not None and self.otype is not None
 
-    logging.basicConfig(level=loglevel)
+      def teach_rf(self):
+         return self.teachFile is not None and self.rf
 
-    if ip is None and mac is None and switch is None and emitFile is None and teach is None:
-        # Nothing passed as parameter
-        for d in Orvibo.discover().values():
-            d = Orvibo(*d)
-            print(d)
-        sys.exit(0)
+      def emit_rf(self):
+         return self.emitFile is not None and self.rf and self.switch is not None
 
-    if ip is None and mac is not None and otype is not None:
-        # IP is skipped
-        d = Orvibo(BROADCAST, mac, otype)
-    elif ip is not None:
-        if mac is None:
-            try:
-                d = Orvibo.discover(ip)
-            except OrviboException as e:
-                print(e)
-                sys.exit(-1)
-        else:
-            d = Orvibo(ip, mac, otype)
-    else:
-        usage()
-        sys.exit(1)
+      def emit_ir(self):
+         return self.emitFile is not None and not self.rf
 
-    print(d)
+      def teach_ir(self):
+         return self.teachFile is not None and not self.rf
 
-    if d.type == Orvibo.TYPE_SOCKET:
-        if switch is None:
+   o = Opts()
+   if not o.init():
+      usage()
+      sys.exit(2)
+
+   if o.help:
+      usage()
+      sys.exit()
+
+   if o.version:
+      print(__version__)
+      sys.exit()
+      sys.exit(0)
+
+   logging.basicConfig(level=o.log_level)
+
+   if o.discover_all():
+      for d in Orvibo.discover().values():
+         d = Orvibo(*d)
+         print(d)
+      sys.exit(0)
+
+   if o.ip_skipped():
+      d = Orvibo(BROADCAST, o.mac, o.otype)
+   elif o.mac is None:
+      try:
+         d = Orvibo.discover(o.ip)
+      except OrviboException as e:
+         print(e)
+         sys.exit(-1)
+   else:
+      d = Orvibo(o.ip, o.mac, o.otype)
+
+   print(d)
+
+   if d.type == Orvibo.TYPE_SOCKET:
+      if o.switch is None:
+         print('Is enabled: {}'.format(d.on))
+      else:
+         if d.on != o.switch:
+            d.on = o.switch
             print('Is enabled: {}'.format(d.on))
-        else:
-            if d.on != switch:
-                d.on = switch
-                print('Is enabled: {}'.format(d.on))
-            else:
-                print('Already {}.'.format('enabled' if switch else 'disabled'))
-    elif d.type == Orvibo.TYPE_IRDA:
-        if emitFile is not None:
-            d.emit(emitFile)
-            print('Done.')
-        elif teach is not None:
-            signal = d.learn(teach)
+         else:
+            print('Already {}.'.format('enabled' if o.switch else 'disabled'))
+   elif d.type == Orvibo.TYPE_IRDA:
+      if o.emit_rf():
+         # It is required to wake up AllOne
+         d.emit_ir(b' ')
+         d.emit_rf433(o.switch, o.emitFile)
+         print('Emit RF done.')
+      elif o.emit_ir():
+         d.emit_ir(o.emitFile)
+         print('Emit IR done.')
+      elif o.teach_rf():
+         # It is required to wake up AllOne
+         d.emit_ir(b' ')
+         signal = d.learn_rf433(o.teachFile)
+         print('Teach RF done.')
+      elif o.teach_ir():
+         signal = d.learn(o.teachFile)
+         print('Teach IR done')
