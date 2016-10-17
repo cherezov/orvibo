@@ -24,7 +24,7 @@ Module to manipulate Orvibo devices, such as [s20 wifi sockets](http://www.aliex
 *please let me know about apps not listed here :octocat:*
 * [OpenHAB](https://community.openhab.org/t/orvibo-allone-ir-blaster-guide/9111) guide by community user [@robinson](https://community.openhab.org/users/robinson)
 * [Samsung Artic](https://www.artik.io/works-with-cloud/orbivo-wiwo/) guide cloud setup
-* 
+* [Domoticz](http://easydomoticz.com/forum/viewtopic.php?t=2406) community guide
 
 ## Usage
 ### As console app
